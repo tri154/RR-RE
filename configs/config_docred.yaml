@@ -2,14 +2,18 @@ device: cuda
 result_path: results
 
 dataset:
-  name: docred
+  name: DocRED
   kwargs:
     sets:
       train: "train_annotated.json"
       dev  : "dev.json"
       test : "test.json"
-    num_class: 2
+    num_class: 97
+    max_seq_length: 1024
+
+encoder:
+  name: roberta-large
+  lazy: True
 
 model:
   name: atlop
-  encoder:

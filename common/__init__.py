@@ -1,5 +1,6 @@
 from .interfaces import DatasetHandler
 from .config import Config
+from .encoder import Encoder
 
 import importlib
 

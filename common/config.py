@@ -23,6 +23,11 @@ def get_config_path():
     return args.config
 
 class Config:
+    device: str
+    result_path: str
+    dataset: dict
+    encoder: dict
+    model: dict
 
     def __init__(self, path=None):
         path = path if path is not None else get_config_path()
@@ -44,14 +49,14 @@ class Config:
             self.device = 'cpu'
             self.logging("cuda is not available, use cpu instead.", is_printed=True)
 
-    def set_seed(self):
+    def set_seed(self, seed):
         self.logging("=" * 50 + "\n\n\n")
-        self.logging(f"Using seed {self.seed}.")
-        random.seed(self.seed)
-        np.random.seed(self.seed)
-        torch.manual_seed(self.seed)
-        torch.cuda.manual_seed(self.seed)
-        torch.cuda.manual_seed_all(self.seed)
+        self.logging(f"Using seed {seed}.")
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
 
         torch.backends.cudnn.enabled = False
         torch.backends.cudnn.benchmark = False
