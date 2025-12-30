@@ -1,0 +1,15 @@
+device: cuda
+result_path: results
+
+dataset:
+  name: docred
+  kwargs:
+    sets:
+      train: "train_annotated.json"
+      dev  : "dev.json"
+      test : "test.json"
+    num_class: 2
+
+model:
+  name: atlop
+  encoder:
