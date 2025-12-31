@@ -1,0 +1,19 @@
+device: cuda
+result_path: results/redocred
+
+dataset:
+  name: ReDocRED
+  sets:
+    train: "train_revised.json"
+    dev  : "dev_revised.json"
+    test : "test_revised.json"
+  num_class: 97
+  max_seq_length: 1024
+  cached_location: cached.pkl
+
+encoder:
+  name: roberta-large
+  lazy: True
+
+model:
+  name: atlop

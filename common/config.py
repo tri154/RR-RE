@@ -1,8 +1,8 @@
+from common import logging
 import argparse
 import random
 import torch
 import numpy as np
-import time
 import yaml
 import os
 
@@ -37,21 +37,24 @@ class Config:
 
         # process config
         os.makedirs(self.result_path, exist_ok=True)
-        self.save_path = os.path.join(self.result_path, 'best.pt')
         self.log_path = os.path.join(self.result_path, 'log.txt')
-        self.check_device()
-
+        self.check_device(self.device)
 
         self.log_config(True)
+        self.shared = {
+            "device": self.device,
+            "result_path": self.result_path,
+            "log_path": self.log_path
+        }
 
-    def check_device(self):
-        if self.device.lower() == 'cuda' and not torch.cuda.is_available():
+    def check_device(self, current_device):
+        if current_device.lower() == 'cuda' and not torch.cuda.is_available():
             self.device = 'cpu'
-            self.logging("cuda is not available, use cpu instead.", is_printed=True)
+            logging("cuda is not available, use cpu instead.", self.log_path, is_printed=True)
 
     def set_seed(self, seed):
-        self.logging("=" * 50 + "\n\n\n")
-        self.logging(f"Using seed {seed}.")
+        logging("=" * 50 + "\n\n\n", self.log_path)
+        logging(f"Using seed {seed}.", self.log_path)
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -63,18 +66,11 @@ class Config:
         torch.backends.cudnn.deterministic = True
         torch.use_deterministic_algorithms(True, warn_only=True)
 
-    def logging(self, text, is_printed=False, print_time=False):
-        if print_time:
-            text = time.strftime("%Y %b %d %a, %H:%M:%S: ") + text
-        if is_printed:
-            print(text)
-        with open(self.log_path, 'a') as file:
-            print(text, file=file, flush=True)
 
     def log_config(self, is_printed=False):
-        self.logging("Configuration Settings:", is_printed=is_printed)
+        logging("Configuration Settings:", self.log_path,is_printed=is_printed)
         for key, value in sorted(self.__dict__.items()):
             # Avoid logging functions or modules
             if not key.startswith("__") and not callable(value):
-                self.logging(f"{key}: {value}", is_printed=is_printed)
-        self.logging("=" * 50, is_printed=is_printed)
+                logging(f"{key}: {value}", self.log_path, is_printed=is_printed)
+        logging("=" * 50, self.log_path, is_printed=is_printed)

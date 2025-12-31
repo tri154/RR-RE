@@ -1,10 +1,9 @@
-from common import Config, Encoder, load_class
+from common import Config, Encoder, load_class, DatasetHandler
 
-def load_handler(dataset_cfg):
+def load_handler(**dataset_cfg) -> DatasetHandler:
     name = dataset_cfg["name"]
-    kwargs = dataset_cfg["kwargs"]
     cls = load_class("datasets", name)
-    return cls(**kwargs)
+    return cls(**dataset_cfg)
 
 
 def load_model(model_cfg):
@@ -12,13 +11,15 @@ def load_model(model_cfg):
 
 
 if __name__ == "__main__":
-    cfg_path = "configs/config_docred.yaml"
+    cfg_path = "configs/config_redocred.yaml"
     cfg = Config(cfg_path)
-    dvc = cfg.device
 
-    encoder = Encoder(**cfg.encoder)
+    encoder = Encoder(**cfg.encoder, **cfg.shared)
 
-    handler = load_handler(cfg.dataset)
-    handler.get_features(encoder.tokenizer)
+    handler = load_handler(**cfg.dataset, **cfg.shared)
+    features = handler.get_features(encoder.tokenizer)
+    train_features = features["train"]
+    dev_features = features["dev"]
+    test_features = features["test"]
 
     breakpoint()

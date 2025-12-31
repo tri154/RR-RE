@@ -1,1 +1,1 @@
-from .docred import DocRED
+from .redocred import ReDocRED

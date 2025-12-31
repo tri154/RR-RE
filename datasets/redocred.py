@@ -1,29 +1,48 @@
-from torch.nested._internal.sdpa import _cumulative_and_max_seq_len_nnz
-from common import DatasetHandler
+from common import DatasetHandler, logging
+
 import os.path as path
 import json
 import numpy as np
-from tqdm import tqdm
+import pickle as pkl
 
-def load_json(p):
+
+def _load_json(p):
     with open(p, 'r') as file:
         data = json.load(file)
     return data
 
-class DocRED(DatasetHandler):
+def _load_cache(path):
+    with open(path, 'rb') as file:
+        loadded_data = pkl.load(file)
+    return loadded_data
+
+def _save_cache(data, path):
+    with open(path, 'wb') as file:
+        pkl.dump(data, file)
+
+
+
+class ReDocRED(DatasetHandler):
     name: str
     sets: dict
     num_class: int
     max_seq_length: int
+    cached_location: str
+    result_path: str
+    log_path: str
+    device: str
 
     def __init__(self, **dataset_kwargs):
         super().__init__()
         self.__dict__.update(dataset_kwargs)
-        self.sets = {k: path.join("data/docred", self.sets[k]) for k in self.sets.keys()}
-        self.rel2id = load_json("data/docred/rel2id.json")
-        self.rel_info = load_json("data/docred/rel_info.json")
+        self.sets = {k: path.join("data/redocred", self.sets[k]) for k in self.sets.keys()}
+        self.rel2id = _load_json("data/redocred/rel2id.json")
+        self.rel_info = _load_json("data/redocred/rel_info.json")
+        self.cached_location = path.join(self.result_path, "cached.pkl")
 
     def read_docred(self, file_in, tokenizer, max_seq_length=1024, max_docs=None):
+        from collections import defaultdict
+        len_freq = defaultdict(int)
         i_line = 0
         pos_samples = 0
         neg_samples = 0
@@ -38,7 +57,7 @@ class DocRED(DatasetHandler):
             data = data[:max_docs]
 
         re_fre = np.zeros(len(self.rel2id) - 1)
-        for idx, sample in enumerate(tqdm(data)):
+        for idx, sample in enumerate(data):
             sents = []
             sent_map = []
 
@@ -109,9 +128,14 @@ class DocRED(DatasetHandler):
 
             assert len(relations) == len(entities) * (len(entities) - 1)
 
+            len_freq[len(sents)] += 1
             sents = sents[:max_seq_length - 2]
             input_ids = tokenizer.convert_tokens_to_ids(sents)
             input_ids = tokenizer.build_inputs_with_special_tokens(input_ids)
+            # NOTE: adding sos token and eos token, making entity pos are off set of 1,
+            # should check the behaviour of different tokenizers.
+
+            entity_pos = [(np.array(ments) + 1).tolist() for ments in entity_pos]
 
             i_line += 1
             feature = {'input_ids': input_ids,
@@ -121,22 +145,24 @@ class DocRED(DatasetHandler):
                         'title': sample['title']}
             features.append(feature)
 
-        print("# of documents {}.".format(i_line))
-        print("# of positive examples {}.".format(pos_samples))
-        print("# of negative examples {}.".format(neg_samples))
+        logging("# of documents {}.".format(i_line), self.log_path, is_printed=True)
+        logging("# of positive examples {}.".format(pos_samples), self.log_path, is_printed=True)
+        logging("# of negative examples {}.".format(neg_samples), self.log_path, is_printed=True)
         re_fre = 1. * re_fre / (pos_samples + neg_samples)
-        # print(re_fre)
-        print("# rels per doc", 1. * rel_nums / i_line)
-        return features, re_fre
+        # logging("# rels per doc".format(1. * rel_nums / i_line), self.log_path, is_printed=True)
+        logging(f"Max seq len: {max(list(len_freq.keys()))} .", self.log_path, is_printed=True)
+        return features, re_fre, len_freq
 
     def get_features(self, tokenizer):
+        if path.exists(self.cached_location):
+            logging("use cached dataset.", self.log_path, is_printed=True)
+            return _load_cache(self.cached_location)
+
         res = dict()
         for k, file_path in self.sets.items():
-            features, re_fre  = self.read_docred(file_path, tokenizer, self.max_seq_length)
-            feat = features[0]
-            input_ids = feat["input_ids"]
-            entity_pos = feat["entity_pos"]
-            labels = feat["labels"]
-            hts = feat["hts"]
-
-            breakpoint()
+            logging(f"{k} stats: ", self.log_path, is_printed=True)
+            features, re_fre, len_freq  = self.read_docred(file_path, tokenizer, self.max_seq_length)
+            res[k] = features
+        _save_cache(res, self.cached_location)
+        logging("dataset cached.", self.log_path, is_printed=True)
+        return res
