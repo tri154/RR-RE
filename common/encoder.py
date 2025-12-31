@@ -2,10 +2,11 @@ from transformers import AutoConfig, AutoModel, AutoTokenizer
 import torch.nn as nn
 
 class Encoder(nn.Module):
-    name: str
     result_path: str
     device: str
     log_path: str
+
+    name: str
     lazy: bool
 
     def __init__(self, **encoder_kwargs):

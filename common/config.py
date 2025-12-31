@@ -28,6 +28,7 @@ class Config:
     dataset: dict
     encoder: dict
     model: dict
+    trainer: dict
 
     def __init__(self, path=None):
         path = path if path is not None else get_config_path()

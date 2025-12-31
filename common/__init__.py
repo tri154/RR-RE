@@ -1,5 +1,6 @@
 import importlib
 import time
+import torch
 
 def load_class(module, class_name):
     module = importlib.import_module(module)
@@ -14,6 +15,8 @@ def logging(text, log_path, is_printed=False, print_time=False):
     with open(log_path, 'a') as file:
         print(text, file=file, flush=True)
 
+
 from .interfaces import DatasetHandler
 from .config import Config
 from .encoder import Encoder
+from .trainer import Trainer

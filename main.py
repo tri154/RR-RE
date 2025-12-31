@@ -1,4 +1,11 @@
-from common import Config, Encoder, load_class, DatasetHandler
+from common import (
+    Config,
+    Encoder,
+    load_class,
+    DatasetHandler
+    Trainer,
+)
+
 
 def load_handler(**dataset_cfg) -> DatasetHandler:
     name = dataset_cfg["name"]
@@ -21,5 +28,7 @@ if __name__ == "__main__":
     train_features = features["train"]
     dev_features = features["dev"]
     test_features = features["test"]
+
+    trainer = Trainer(**cfg.trainer, **cfg.shared, collate_fn=handler.get_features)
 
     breakpoint()

@@ -4,6 +4,7 @@ import os.path as path
 import json
 import numpy as np
 import pickle as pkl
+import torch
 
 
 def _load_json(p):
@@ -11,26 +12,28 @@ def _load_json(p):
         data = json.load(file)
     return data
 
+
 def _load_cache(path):
     with open(path, 'rb') as file:
         loadded_data = pkl.load(file)
     return loadded_data
+
 
 def _save_cache(data, path):
     with open(path, 'wb') as file:
         pkl.dump(data, file)
 
 
-
 class ReDocRED(DatasetHandler):
+    device: str
+    result_path: str
+    log_path: str
+
     name: str
     sets: dict
     num_class: int
     max_seq_length: int
     cached_location: str
-    result_path: str
-    log_path: str
-    device: str
 
     def __init__(self, **dataset_kwargs):
         super().__init__()
@@ -106,7 +109,7 @@ class ReDocRED(DatasetHandler):
                     end = sent_map[m["sent_id"]][m["pos"][1]]
                     entity_pos[-1].append((start, end,))
 
-
+            # TODO: replace one-hot encoding to save memory.
             relations, hts = [], []
             for h, t in train_triple.keys():
                 relation = [0] * len(self.rel2id)
@@ -153,6 +156,7 @@ class ReDocRED(DatasetHandler):
         logging(f"Max seq len: {max(list(len_freq.keys()))} .", self.log_path, is_printed=True)
         return features, re_fre, len_freq
 
+
     def get_features(self, tokenizer):
         if path.exists(self.cached_location):
             logging("use cached dataset.", self.log_path, is_printed=True)
@@ -166,3 +170,15 @@ class ReDocRED(DatasetHandler):
         _save_cache(res, self.cached_location)
         logging("dataset cached.", self.log_path, is_printed=True)
         return res
+
+    def collate_fn(self, batch):
+        max_len = max([len(f["input_ids"]) for f in batch])
+        input_ids = [f["input_ids"] + [0] * (max_len - len(f["input_ids"])) for f in batch]
+        input_mask = [[1.0] * len(f["input_ids"]) + [0.0] * (max_len - len(f["input_ids"])) for f in batch]
+        labels = [f["labels"] for f in batch]
+        entity_pos = [f["entity_pos"] for f in batch]
+        hts = [f["hts"] for f in batch]
+        input_ids = torch.tensor(input_ids, dtype=torch.long)
+        input_mask = torch.tensor(input_mask, dtype=torch.float)
+        output = (input_ids, input_mask, labels, entity_pos, hts)
+        return output
