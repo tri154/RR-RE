@@ -171,7 +171,7 @@ class ReDocRED(DatasetHandler):
         logging("dataset cached.", self.log_path, is_printed=True)
         return res
 
-    def collate_fn(self, batch):
+    def collate_fn(self, batch, training=False) -> tuple:
         max_len = max([len(f["input_ids"]) for f in batch])
         input_ids = [f["input_ids"] + [0] * (max_len - len(f["input_ids"])) for f in batch]
         input_mask = [[1.0] * len(f["input_ids"]) + [0.0] * (max_len - len(f["input_ids"])) for f in batch]

@@ -23,10 +23,15 @@ trainer:
   batch_size: 4
   model_save: best.pt
   gradient_accumulation_steps: 1
-  warmup_ratio: 0.06
-  opt_name: Adam
-  opt_kwargs:
+
+optimizer:
+  name: Adam
+  kwargs:
     betas:
       - 0.9 # beta1
       - 0.98 # beta2
     eps: !!float 1e-9
+
+lr_scheduler:
+  name: Linear
+  warmup_ratio: 0.06

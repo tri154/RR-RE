@@ -29,6 +29,8 @@ class Config:
     encoder: dict
     model: dict
     trainer: dict
+    optimizer: dict
+    lr_scheduler: dict
 
     def __init__(self, path=None):
         path = path if path is not None else get_config_path()
