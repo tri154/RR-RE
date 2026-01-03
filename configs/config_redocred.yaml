@@ -33,5 +33,4 @@ optimizer:
     eps: !!float 1e-9
 
 lr_scheduler:
-  name: Linear
   warmup_ratio: 0.06

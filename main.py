@@ -5,8 +5,11 @@ from common import (
     DatasetHandler,
     load_class,
     OPTIMIZERS,
-    SCHEDULERS,
 )
+
+from transformers.optimization import get_linear_schedule_with_warmup
+import math
+import torch
 
 def load_handler(**dataset_cfg) -> DatasetHandler:
     name = dataset_cfg["name"]
@@ -25,12 +28,12 @@ def load_model(model_cfg):
     pass
 
 
-def load_scheduler(train_metadata, **scheduler_cfg):
-    # continue
-    name = scheduler_cfg["name"]
-    fn = SCHEDULERS[name]
-
-    pass
+def load_scheduler(optimizer, num_training_steps, warmup_ratio):
+    return get_linear_schedule_with_warmup(
+        optimizer,
+        int(num_training_steps * warmup_ratio),
+        num_training_steps
+    )
 
 
 if __name__ == "__main__":
@@ -38,8 +41,6 @@ if __name__ == "__main__":
     cfg = Config(cfg_path)
 
     encoder = Encoder(**cfg.encoder, **cfg.shared)
-    # temp
-    import torch
     model = torch.nn.Linear(1, 2)
 
     handler = load_handler(**cfg.dataset, **cfg.shared)
@@ -52,6 +53,12 @@ if __name__ == "__main__":
     )
 
     optimizer = load_optimizer(model, **cfg.optimizer)
-    # scheduler = load_scheduler(train_metadata, **cfg.lr_scheduler)
+    scheduler = load_scheduler(
+        optimizer,
+        trainer.num_training_steps,
+        cfg.lr_scheduler["warmup_ratio"]
+    )
+    # continue
+
     print("done")
     breakpoint()
