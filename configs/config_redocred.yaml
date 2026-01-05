@@ -1,0 +1,44 @@
+device: cuda
+result_path: ${hydra:runtime.output_dir}
+
+dataset:
+  name: ReDocRED
+  path: data/redocred
+  rel2id: ${dataset.path}/rel2id.json
+  sets:
+    train: ${dataset.path}/train_revised.json
+    dev  : ${dataset.path}/dev_revised.json
+    test : ${dataset.path}/test_revised.json
+  num_class: 97
+  max_seq_length: 1024
+  cached_location: ${dataset.path}/cached.pkl
+
+encoder:
+  name: roberta-large
+  lazy: True
+
+trainer:
+  device: ${device}
+  epochs: 30
+  batch_size: 4
+  model_save: ${result_path}/best.pt
+  grad_accum_step: 1
+  pretrain_lr: !!float 1e-5
+  new_lr: !!float 8e-5
+  warmup_ratio: 0.06
+  optimizer_cfg:
+    name: Adam
+    kwargs:
+      betas:
+        - 0.9 # beta1
+        - 0.98 # beta2
+      eps: !!float 1e-9
+
+tester:
+  batch_size: 8
+
+loss:
+  temp: "this is loss"
+
+model:
+  temp: "this is model"
