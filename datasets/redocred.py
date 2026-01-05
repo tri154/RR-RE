@@ -4,6 +4,8 @@ import numpy as np
 import pickle as pkl
 from collections import defaultdict
 import torch
+import torch.functional as F
+from torch.nn.utils.rnn import pad_sequence
 
 import logging
 log = logging.getLogger(__name__)
@@ -103,24 +105,29 @@ class ReDocRED:
                 for m in e:
                     start = sent_map[m["sent_id"]][m["pos"][0]]
                     end = sent_map[m["sent_id"]][m["pos"][1]]
-                    entity_pos[-1].append((start, end,))
+                    # entity_pos[-1].append((start, end,))
+                    # CHANGED: only take start of mention.
+                    entity_pos[-1].append(start)
 
-            # TODO: replace one-hot encoding to save memory.
+            # CHANGED: replace one-hot encoding to save memory.
             relations, hts = [], []
             for h, t in train_triple.keys():
-                relation = [0] * len(self.rel2id)
+                # relation = [0] * len(self.rel2id)
+                relation = []
                 for mention in train_triple[h, t]:
-                    relation[mention["relation"]] = 1
+                    # relation[mention["relation"]] = 1
+                    relation.append(mention["relation"])
                     evidence = mention["evidence"]
                     rel_nums += 1
-                relations.append(relation)
+                relations.append(torch.tensor(relation, dtype=torch.long))
                 hts.append([h, t])
                 pos_samples += 1
 
             for h in range(len(entities)):
                 for t in range(len(entities)):
                     if h != t and [h, t] not in hts:
-                        relation = [1] + [0] * (len(self.rel2id) - 1)
+                        # relation = [1] + [0] * (len(self.rel2id) - 1)
+                        relation = torch.tensor([0], dtype=torch.long)
                         relations.append(relation)
                         hts.append([h, t])
                         neg_samples += 1
@@ -134,7 +141,10 @@ class ReDocRED:
             # NOTE: adding sos token and eos token, making entity pos are off set of 1,
             # should check the behaviour of different tokenizers.
 
-            entity_pos = [(np.array(ments) + 1).tolist() for ments in entity_pos]
+            # CHANGED: to tensor to save time at collate fn.
+            input_ids = torch.tensor(input_ids, dtype=torch.long)
+            entity_pos = [torch.tensor(ments, dtype=torch.long) + 1 for ments in entity_pos]
+            hts = torch.tensor(hts, dtype=torch.long)
 
             i_line += 1
             feature = {'input_ids': input_ids,
@@ -166,7 +176,41 @@ class ReDocRED:
         log.info("dataset cached.")
         return res
 
-    def collate_fn(self, batch, training) -> tuple:
+    def collate_fn(self, batch, training):
+        # CHANGED: use pad sequence for tensor.
+        input_ids = [f["input_ids"] for f in batch]
+        input_mask = [torch.ones(len(ts)) for ts in input_ids]
+        input_ids = pad_sequence(input_ids, batch_first=True, padding_value=0)
+        input_mask = pad_sequence(input_mask, batch_first=True, padding_value=0)
+
+        # TODO: stack this one. Should run code to compare speed.
+        if True:
+            n_entities = list()
+            entity_pos = list()
+            for f in batch:
+                epos = f["entity_pos"]
+                n_entities.append(len(epos))
+                entity_pos.extend(epos)
+            entity_pos = pad_sequence(entity_pos, padding_value=-1, batch_first=True)
+        else:
+            entity_pos = [f["entity_pos"] for f in batch]
+
+        input_ids = input_ids.long()
+        input_mask = input_mask.bool()
+        entity_pos = entity_pos.long()
+        hts = [f["hts"] for f in batch]
+        labels = [f["labels"] for f in batch]
+
+        output = {
+            "input_ids": input_ids,
+            "input_mask": input_mask,
+            "entity_pos": entity_pos,
+            "hts": hts,
+        }
+        # CHANGED: move labels out of batch.
+        return output, labels
+
+    def old_collate_fn(self, batch, training):
         max_len = max([len(f["input_ids"]) for f in batch])
         input_ids = [f["input_ids"] + [0] * (max_len - len(f["input_ids"])) for f in batch]
         input_mask = [[1.0] * len(f["input_ids"]) + [0.0] * (max_len - len(f["input_ids"])) for f in batch]
@@ -176,5 +220,4 @@ class ReDocRED:
         input_ids = torch.tensor(input_ids, dtype=torch.long)
         input_mask = torch.tensor(input_mask, dtype=torch.float)
         output = (input_ids, input_mask, labels, entity_pos, hts)
-        # TODO: move labels out of batch.
         return output

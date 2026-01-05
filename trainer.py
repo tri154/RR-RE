@@ -14,26 +14,40 @@ log = logging.getLogger(__name__)
 OPTIMIZERS = {"Adam": Adam, "AdamW": AdamW}
 
 
+def move_to_device(batch, device):
+    if device == 'cpu':
+        return batch
+    if isinstance(batch, dict):
+        for k, v in batch.items():
+            if torch.is_tensor(v):
+                batch[k] = v.cuda(non_blocking=True)
+    # TODO: move batch_label to device if needed.
+    return batch
+
 class Trainer:
-    device: str
     epochs: int
     batch_size: int
-    model_save: str
     grad_accum_step: int
+    eval_freq: int
+    print_freq: int
+    max_grad_norm: float
+    model_save: str
+
     pretrain_lr: float
     new_lr: float
-    optimizer_cfg: Any
     warmup_ratio: float
+    optimizer_cfg: Any
 
     def __init__(self, trainer_cfg, model, tester, loss, *,train_features, train_collate_fn):
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, trainer_cfg.get(name))
 
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = model
         self.tester = tester
         self.train_features = train_features
         self.train_collate_fn = train_collate_fn
-        self.loss = loss
+        self.loss_fn = loss
 
     def prepare_optimizer_scheduler(self, train_loader):
         grouped_params = defaultdict(list)
@@ -59,47 +73,48 @@ class Trainer:
         total_loss = 0.0
         tracking_loss = 0.0
 
-        for idx_batch, batch_input in enumerate(self.train_loader):
-            # CONTINUE: todo things, pin memory.
-            breakpoint()
-            # TODO: to device
-            # batch_input = batch_input.to(device)
+        for idx_batch, (batch_input, batch_label) in enumerate(self.train_loader):
+            batch_input = move_to_device(batch_input, device)
+            # batch_label = move_to_device(batch_label, device)
 
             self.model.train()
-            batch_logits = self.model()
-            batch_loss = self.loss_fn.compute_loss(batch_logits, batch_trg[:, 1:].contiguous())
+            batch_logits = self.model(**batch_input)
+            batch_loss = self.loss_fn.compute_loss(batch_logits, batch_label)
+            (batch_loss / self.grad_accum_step).backward()
 
             # DEBUG
             # print(batch_loss)
             # input("break")
             # DEBUG
-            batch_loss.backward()
 
             is_updated = True
-            is_evaluated = idx_batch == len(train_dataloader) - 1
-            is_evaluated = is_evaluated or (self.cfg.eval_freq > 0 and idx_batch % self.cfg.eval_freq == 0 and idx_batch != 0)
+            is_final_step = idx_batch == len(self.train_loader) - 1
+            is_eval_step = self.eval_freq > 0 and idx_batch % self.eval_freq == 0 and idx_batch != 0
+            is_evaluated = is_final_step or is_eval_step
 
             if is_updated:
+                if self.max_grad_norm > 0:
+                    clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 self.opt.step()
                 self.opt.zero_grad()
                 self.sched.step()
 
             if is_evaluated:
-                d_score = self.tester.test(self.model, self.tokenizer, tag='dev', batch_size=self.cfg.test_batch_size)
-                self.cfg.logging(f"batch id: {idx_batch}, Dev result : {d_score}", is_printed=True, print_time=True)
+                d_score = self.tester.test(self.model, tag='dev')
+                log.info(f"batch id: {idx_batch}, Dev result : {d_score}")
                 if d_score > self.best_score_dev:
                     self.best_score_dev = d_score
-                    torch.save(self.model.state_dict(), self.cfg.save_path)
+                    torch.save(self.model.state_dict(), self.model_save)
 
-            if idx_batch % self.cfg.print_freq == 0 and idx_batch != 0:
-                self.cfg.logging(f"batch id: {idx_batch}, batch loss: {tracking_loss/ self.cfg.print_freq}", is_printed=True, print_time=True)
+            if idx_batch % self.print_freq == 0 and idx_batch != 0:
+                log.info(f"batch id: {idx_batch}, batch loss: {tracking_loss/self.print_freq}")
                 tracking_loss = 0.0
 
             batch_loss_item = batch_loss.item()
             tracking_loss += batch_loss_item
             total_loss += batch_loss_item
 
-        return total_loss / len(train_dataloader)
+        return total_loss / len(self.train_loader)
 
 
 
@@ -110,7 +125,7 @@ class Trainer:
             collate_fn=self.train_collate_fn,
             shuffle=True,
             drop_last=True,
-            pin_memory=True,
+            pin_memory= self.device == 'cuda',
         )
 
         self.opt, self.sched = self.prepare_optimizer_scheduler(self.train_loader)
@@ -121,7 +136,6 @@ class Trainer:
             log.info(f'epoch {idx_epoch + 1}/{self.epochs} ' + '=' * 100)
 
             epoch_loss = self.train_one_epoch(idx_epoch)
-            breakpoint()
 
             log.info(f"epoch: {idx_epoch + 1}, loss={epoch_loss} .")
             self.cur_epoch += 1
