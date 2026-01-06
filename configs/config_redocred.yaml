@@ -14,7 +14,8 @@ dataset:
 
 encoder:
   name: roberta-large
-  transformer_type: roberta # roberta or bert
+  transformer_type: roberta # roberta only
+  attn_impl: null # null | sdpa
   lazy: True
 
 trainer:

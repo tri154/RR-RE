@@ -8,6 +8,7 @@ from models import Encoder, DocREModel
 from trainer import Trainer
 from tester import Tester
 from loss import Loss
+from utils import collate_fn
 
 import logging
 log = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ def main(cfg: DictConfig):
         cfg.tester,
         dev_features=features["dev"],
         test_features=features["test"],
-        test_collate_fn=partial(dataset.collate_fn, training=False)
+        test_collate_fn=partial(collate_fn, training=False)
     )
     trainer = Trainer(
         cfg.trainer,
@@ -34,7 +35,7 @@ def main(cfg: DictConfig):
         tester,
         loss,
         train_features=features["train"],
-        train_collate_fn=partial(dataset.collate_fn, training=True)
+        train_collate_fn=partial(collate_fn, training=True)
     )
 
     trainer.train()

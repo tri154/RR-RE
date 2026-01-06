@@ -13,6 +13,7 @@ class Encoder(nn.Module):
 
     name: str
     transformer_type: str
+    attn_impl: str
     lazy: bool
 
     def __init__(self, encoder_cfg):
@@ -43,9 +44,24 @@ class Encoder(nn.Module):
         self.pad_token_ids = self.tokenizer.pad_token_id
 
 
+    def get_attn_type(self):
+        attn = self.encoder.encoder.layer[0].attention.self
+        return attn.__class__.__name__
+
     def load_model(self):
         if not hasattr(self, "encoder"):
-            self.encoder = AutoModel.from_pretrained(self.name, config=self.config)
+            if self.attn_impl is not None:
+                self.encoder = AutoModel.from_pretrained(
+                    self.name,
+                    config=self.config,
+                    attn_implementation=self.attn_impl
+                )
+            else:
+                self.encoder = AutoModel.from_pretrained(
+                    self.name,
+                    config=self.config
+                )
+
 
     def forward_sliding_window_with_attention(self, batch_token_seqs, batch_token_masks, stride=128):
         # CHANGED: remove token type.

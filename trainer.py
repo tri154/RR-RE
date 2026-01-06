@@ -7,22 +7,14 @@ from transformers.optimization import get_linear_schedule_with_warmup
 from torch.optim import AdamW, Adam
 from torch.utils.data import DataLoader
 
+from utils import move_to_cuda
+
 import logging
 log = logging.getLogger(__name__)
 
 
 OPTIMIZERS = {"Adam": Adam, "AdamW": AdamW}
 
-
-def move_to_device(batch, device):
-    if device == 'cpu':
-        return batch
-    if isinstance(batch, dict):
-        for k, v in batch.items():
-            if torch.is_tensor(v):
-                batch[k] = v.cuda(non_blocking=True)
-    # TODO: move batch_label to device if needed.
-    return batch
 
 class Trainer:
     epochs: int
@@ -74,8 +66,8 @@ class Trainer:
         tracking_loss = 0.0
 
         for idx_batch, (batch_input, batch_label) in enumerate(self.train_loader):
-            batch_input = move_to_device(batch_input, device)
-            # batch_label = move_to_device(batch_label, device)
+            batch_input = move_to_cuda(**batch_input, device=device)
+            # TODO: move batch_label to cuda if needed.
 
             self.model.train()
             batch_logits = self.model(**batch_input)
