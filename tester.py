@@ -45,3 +45,6 @@ class Tester:
             # batch_label = move_to_device(batch_label, self.device)
             # TODO: complete later.
             logits = model(**batch_input)
+
+        # ...
+        return 1

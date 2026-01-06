@@ -206,6 +206,7 @@ class ReDocRED:
             "input_mask": input_mask,
             "entity_pos": entity_pos,
             "hts": hts,
+            "n_entities": n_entities,
         }
         # CHANGED: move labels out of batch.
         return output, labels

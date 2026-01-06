@@ -36,9 +36,5 @@ def main(cfg: DictConfig):
 
     trainer.train()
 
-
-    breakpoint()
-
-
 if __name__ == "__main__":
     main()

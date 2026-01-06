@@ -43,7 +43,7 @@ class Trainer:
             setattr(self, name, trainer_cfg.get(name))
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model = model
+        self.model = model.to(self.device)
         self.tester = tester
         self.train_features = train_features
         self.train_collate_fn = train_collate_fn
@@ -79,6 +79,7 @@ class Trainer:
 
             self.model.train()
             batch_logits = self.model(**batch_input)
+            continue
             batch_loss = self.loss_fn.compute_loss(batch_logits, batch_label)
             (batch_loss / self.grad_accum_step).backward()
 
