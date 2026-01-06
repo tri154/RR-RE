@@ -40,7 +40,8 @@ def collate_fn(batch, training):
     input_ids = pad_sequence(input_ids, batch_first=True, padding_value=0)
     input_mask = pad_sequence(input_mask, batch_first=True, padding_value=0)
 
-    # TODO: stack this one. Should run code to compare speed.
+    # NOTDONE: stack this one. Should run code to compare speed.
+    # No need: high chance that one is faster.
     if True:
         n_entities = list()
         entity_pos = list()
