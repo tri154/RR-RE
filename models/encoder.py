@@ -47,7 +47,7 @@ class Encoder(nn.Module):
         if not hasattr(self, "encoder"):
             self.encoder = AutoModel.from_pretrained(self.name, config=self.config)
 
-    def forward_sliding_window(self, batch_token_seqs, batch_token_masks, stride=128):
+    def forward_sliding_window_with_attention(self, batch_token_seqs, batch_token_masks, stride=128):
         # CHANGED: remove token type.
         # if 'roberta' in self.transformer.config._name_or_path:
         #     batch_token_types = torch.zeros_like(batch_token_types)
@@ -56,8 +56,11 @@ class Encoder(nn.Module):
 
         if max_doc_length <= self.max_num_tokens:
             # batch_output = self.transformer(input_ids=batch_token_seqs, attention_mask=batch_token_masks, token_type_ids=batch_token_types, output_attentions=True)
-            batch_output = self.encoder(input_ids=batch_token_seqs, attention_mask=batch_token_masks, output_attentions=True)
-            batch_token_embs, batch_token_atts = batch_output[0], batch_output[-1][-1]
+            batch_output = self.encoder(input_ids=batch_token_seqs,
+                                        attention_mask=batch_token_masks,
+                                        output_attentions=True)
+            batch_token_embs = batch_output[0]
+            batch_token_atts = batch_output[-1][-1]
             return batch_token_embs, batch_token_atts
 
         num_token_per_doc = batch_token_masks.sum(1).int().tolist()
@@ -139,7 +142,8 @@ class Encoder(nn.Module):
                                         attention_mask=batch_token_masks,
                                         # token_type_ids=batch_token_types,
                                         output_attentions=True)
-        token_embs, token_atts = batch_output[0], batch_output[-1][-1]
+        token_embs = batch_output[0]
+        token_atts = batch_output[-1][-1]
 
         batch_token_embs = list()
         batch_token_atts = list()
@@ -191,10 +195,14 @@ class Encoder(nn.Module):
 
         batch_token_embs = torch.stack(batch_token_embs)
         batch_token_atts = torch.stack(batch_token_atts)
+
         return batch_token_embs, batch_token_atts
 
 
-    def forward(self, input_ids, input_mask):
+    def forward(self, input_ids, input_mask, output_attentions):
         self.load_model()
-        seq_embs, attentions = self.forward_sliding_window(input_ids, input_mask, stride=128)
-        return seq_embs, attentions
+        if output_attentions:
+            output = self.forward_sliding_window_with_attention(input_ids, input_mask, stride=128)
+        else:
+            output = self.forward_sliding_window_without_attention(input_ids, input_mask, stride=128)
+        return output
