@@ -5,6 +5,8 @@ class DocREModel(nn.Module):
 
     def __init__(self, model_cfg, pretrain):
         super().__init__()
+        for name in self.__class__.__annotations__: # only update defined annotations.
+            setattr(self, name, model_cfg.get(name))
         pretrain.load_model()
         self.pretrain  = pretrain
 
@@ -16,6 +18,7 @@ class DocREModel(nn.Module):
         hts,
         n_entities
     ):
-        print(input_ids.shape)
-        seq_embs, attentions = self.pretrain(input_ids, input_mask)
-        print(f"done {seq_embs.shape}")
+        # TODO: speed when output attentions with not, try another type of attention backends.
+        # https://huggingface.co/docs/transformers/attention_interface
+        seq_embs, attentions = self.pretrain(input_ids, input_mask, output_attentions=True)
+        breakpoint()

@@ -9,10 +9,13 @@ from trainer import Trainer
 from tester import Tester
 from loss import Loss
 
+import logging
+log = logging.getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="configs", config_name="config_redocred")
 def main(cfg: DictConfig):
     OmegaConf.resolve(cfg)
+    log.info(OmegaConf.to_yaml(cfg))
     dataset = ReDocRED(cfg.dataset)
     encoder = Encoder(cfg.encoder)
     features = dataset.get_features(encoder.tokenizer)
