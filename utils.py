@@ -1,5 +1,9 @@
 import torch
 from torch.nn.utils.rnn import pad_sequence
+import time
+import torch
+from contextlib import contextmanager
+
 
 def move_to_cuda(
      input_ids,
@@ -121,3 +125,85 @@ def old_collate_fn(batch, training):
     input_mask = torch.tensor(input_mask, dtype=torch.float)
     output = (input_ids, input_mask, labels, entity_pos, hts)
     return output
+
+
+@contextmanager
+def cuda_sync():
+    """Ensure accurate timing on CUDA."""
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    yield
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+
+def benchmark(
+    funcs,
+    iters=100,
+    warmup=10,
+    device="cuda",
+    measure_memory=True,
+    reduce="mean",  # "mean" or "median"
+):
+    """
+    funcs: list of callables, each callable is fn()
+    iters: number of benchmark iterations
+    warmup: warmup iterations (not measured)
+    measure_memory: track max CUDA memory allocated
+    reduce: mean or median time
+    """
+
+    assert reduce in ("mean", "median")
+
+    results = []
+
+    for fn in funcs:
+        # Warmup
+        for _ in range(warmup):
+            fn()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+
+        times = []
+        mems = []
+
+        for _ in range(iters):
+            if measure_memory and torch.cuda.is_available():
+                torch.cuda.reset_peak_memory_stats()
+
+            with cuda_sync():
+                start = time.perf_counter()
+                fn()
+                end = time.perf_counter()
+
+            times.append(end - start)
+
+            if measure_memory and torch.cuda.is_available():
+                mems.append(torch.cuda.max_memory_allocated())
+
+        times_t = torch.tensor(times)
+
+        if reduce == "mean":
+            time_stat = times_t.mean().item()
+        else:
+            time_stat = times_t.median().item()
+
+        result = {
+            "fn": fn.__name__,
+            "time_sec": time_stat,
+            "time_us": time_stat * 1e6,
+        }
+
+        if measure_memory and mems:
+            result["max_mem_MB"] = max(mems) / (1024 ** 2)
+
+        results.append(result)
+
+    # Pretty print
+    print("\nBenchmark results:")
+    for r in results:
+        mem = f", mem={r['max_mem_MB']:.2f} MB" if "max_mem_MB" in r else ""
+        print(f"{r['fn']:<30}: {r['time_us']:.2f} µs{mem}")
+
+    breakpoint()
+    return results

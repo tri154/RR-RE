@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from utils import benchmark
 
 class Loss:
     def __init__(self, loss_cfg):
@@ -44,7 +45,8 @@ class Loss:
             # loss1 = loss1 * (labels[:, 0] != 0)
             # return loss1
 
-        o2 = option2()
-        o1 = option1()
+        # o2 = option2()
+        # o1 = option1()
+        benchmark([option1, option2])
         # CONTINUE here
         breakpoint()
