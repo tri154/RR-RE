@@ -72,13 +72,11 @@ class Trainer:
             self.model.train()
             batch_logits = self.model(**batch_input)
             batch_loss = self.loss_fn.compute_loss(batch_logits, batch_label)
-            breakpoint()
-            continue
             (batch_loss / self.grad_accum_step).backward()
 
             # DEBUG
-            # print(batch_loss)
-            # input("break")
+            print(batch_loss)
+            input("break")
             # DEBUG
 
             is_updated = True
