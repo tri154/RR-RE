@@ -19,11 +19,12 @@ class Loss:
             dim=1,
             index=labels
         )
+
         def option1():
-            selected_logits.masked_fill_(mask, value=0.0)
-            loss1 = torch.sum(selected_logits, dim=1)
             selected_logits.masked_fill_(mask, value=float("-inf"))
-            loss1 = loss1 - (~mask).sum(dim=1) * torch.log(selected_logits.exp().sum(dim=1) + logits[:, 0].exp())
+            loss1 = selected_logits - torch.log(selected_logits.exp().sum(dim=1) + logits[:, 0].exp()).unsqueeze(-1)
+            loss1.masked_fill_(mask, value=0.0)
+            loss1 = torch.sum(loss1, dim=1)
             loss1 = loss1 * (labels[:, 0] != 0)
             return loss1
 
@@ -37,16 +38,18 @@ class Loss:
             loss1 = loss1 * (labels[:, 0] != 0)
             return loss1
 
-            # loss1 = (
-            #     torch.log(
-            #         exp_logits / (exp_logits.sum(dim=1) + logits[:, 0].exp()).unsqueeze(dim=-1)
-            #     ).sum(dim=1)
-            # )
-            # loss1 = loss1 * (labels[:, 0] != 0)
-            # return loss1
+        def option3():
+            # selected_logits.masked_fill_(mask, value=float("-inf"))
+            sel_logits  = selected_logits - (mask * 1e10)
+            loss1 = sel_logits  - torch.log(sel_logits.exp().sum(dim=1) + logits[:, 0].exp()).unsqueeze(-1)
+            # loss1.masked_fill_(mask, value=0.0)
+            loss1 = torch.sum(loss1 * ~mask, dim=1)
+            loss1 = loss1 * (labels[:, 0] != 0)
+            return loss1
 
+        # o3 = option3()
         # o2 = option2()
         # o1 = option1()
-        benchmark([option1, option2])
-        # CONTINUE here
+        # breakpoint()
+        benchmark([option3, option1, option2])
         breakpoint()

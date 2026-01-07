@@ -3,3 +3,4 @@ pyrefly.toml
 **/cached.pkl
 outputs/**
 data/**
+temp/**
