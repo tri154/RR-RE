@@ -75,14 +75,17 @@ class Trainer:
             (batch_loss / self.grad_accum_step).backward()
 
             # DEBUG
-            print(batch_loss)
-            input("break")
+            # print(batch_loss)
+            # input("break")
             # DEBUG
 
             is_updated = True
             is_final_step = idx_batch == len(self.train_loader) - 1
             is_eval_step = self.eval_freq > 0 and idx_batch % self.eval_freq == 0 and idx_batch != 0
             is_evaluated = is_final_step or is_eval_step
+            # DEBUG
+            is_evaluated = False
+            # DEBUG
 
             if is_updated:
                 if self.max_grad_norm > 0:
@@ -132,8 +135,9 @@ class Trainer:
             log.info(f"epoch: {idx_epoch + 1}, loss={epoch_loss} .")
             self.cur_epoch += 1
 
-        self.model.load_state_dict(torch.load(self.model_save, map_location=self.device))
-        t_tp, t_fp, t_fn, self.precision_test, self.recall_test, self.f1_test = self.tester.test(self.model, dataset='test', run_both=run_both)
-        log.info(f"Test result: TP={t_tp}, FP={t_fp}, FN={t_fn}, P={self.precision_test:.10f}, R={self.recall_test:.10f}, F1={self.f1_test:.10f}")
+        # DEBUG
+        # self.model.load_state_dict(torch.load(self.model_save, map_location=self.device))
+        # t_tp, t_fp, t_fn, self.precision_test, self.recall_test, self.f1_test = self.tester.test(self.model, dataset='test', run_both=run_both)
+        # log.info(f"Test result: TP={t_tp}, FP={t_fp}, FN={t_fn}, P={self.precision_test:.10f}, R={self.recall_test:.10f}, F1={self.f1_test:.10f}")
 
         return self.best_f1_dev

@@ -60,6 +60,7 @@ class DocREModel(nn.Module):
         rs = entity_attns[hts]
         rs = rs[:, 0] * rs[:, 1]
         rs = rs.sum(dim=1)
+        assert (rs.sum(dim=1) != 0).all()
         rs = rs / rs.sum(dim=1, keepdim=True) # n, mlen
 
         n_rels_cum = cumsum_with_zero(n_rels, exclude_last=False)

@@ -121,6 +121,7 @@ class ReDocRED:
                     evidence = mention["evidence"]
                     rel_nums += 1
                 relations.append(sorted(relation))
+                assert relations[-1][0] != 0
                 hts.append([h, t])
                 pos_samples += 1
 

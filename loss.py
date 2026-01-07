@@ -36,5 +36,5 @@ class Loss:
         loss2 = logits[:, 0] - torch.log(logits.exp().sum(dim=1) - logits_exp)
 
         loss = loss1 + loss2
-        loss = loss.mean()
+        loss = - loss.mean()
         return loss
