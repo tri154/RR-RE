@@ -7,13 +7,22 @@ from utils import cumsum_with_zero
 SMALL_NEGATIVE = -1e10
 
 class DocREModel(nn.Module):
+    emb_size: int
+    block_size: int
+    num_class: int
 
     def __init__(self, model_cfg, pretrain):
         super().__init__()
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, model_cfg.get(name))
         pretrain.load_model()
-        self.pretrain  = pretrain
+        self.pretrain = pretrain
+        self.hidden_size = self.pretrain.config.hidden_size
+
+        self.head_extractor = nn.Linear(self.hidden_size * 2, self.emb_size)
+        self.tail_extractor = nn.Linear(self.hidden_size * 2, self.emb_size)
+        self.bilinear = nn.Linear(self.emb_size * self.block_size, self.num_class)
+
 
     def get_entity_embs_attns(self, seq_embs, attentions, entity_pos, n_entities):
         bs = seq_embs.shape[0]
@@ -97,4 +106,11 @@ class DocREModel(nn.Module):
         hs, ts = self.get_ht(entity_embs, hts)
         rs = self.get_rs(seq_embs, entity_attns, hts, n_rels)
 
-        breakpoint()
+        hs = torch.tanh(self.head_extractor(torch.cat([hs, rs], dim=1)))
+        ts = torch.tanh(self.tail_extractor(torch.cat([ts, rs], dim=1)))
+        hs = hs.view(-1, self.emb_size // self.block_size, self.block_size)
+        ts = ts.view(-1, self.emb_size // self.block_size, self.block_size)
+        bl = (hs.unsqueeze(3) * ts.unsqueeze(2)).view(-1, self.emb_size * self.block_size)
+        logits = self.bilinear(bl)
+
+        return logits

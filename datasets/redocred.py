@@ -49,6 +49,7 @@ class ReDocRED:
         neg_samples = 0
         rel_nums = 0
         features = []
+        max_n_rels = -1
         # if file_in == "":
         #     return None
         with open(file_in, "r") as fh:
@@ -119,7 +120,7 @@ class ReDocRED:
                     relation.append(mention["relation"])
                     evidence = mention["evidence"]
                     rel_nums += 1
-                relations.append(torch.tensor(relation, dtype=torch.long))
+                relations.append(sorted(relation))
                 hts.append([h, t])
                 pos_samples += 1
 
@@ -127,12 +128,13 @@ class ReDocRED:
                 for t in range(len(entities)):
                     if h != t and [h, t] not in hts:
                         # relation = [1] + [0] * (len(self.rel2id) - 1)
-                        relation = torch.tensor([0], dtype=torch.long)
+                        relation = [0]
                         relations.append(relation)
                         hts.append([h, t])
                         neg_samples += 1
 
             assert len(relations) == len(entities) * (len(entities) - 1)
+            max_n_rels = max(max([len(rel) for rel in relations]), max_n_rels)
 
             len_freq[len(sents)] += 1
             sents = sents[:max_seq_length - 2]
@@ -160,6 +162,17 @@ class ReDocRED:
         re_fre = 1. * re_fre / (pos_samples + neg_samples)
         # log("# rels per doc".format(1. * rel_nums / i_line))
         log.info(f"Max seq len: {max(list(len_freq.keys()))} .")
+        log.info(f"max number of rels: {max_n_rels} .")
+
+        # CHANGED: padding labels here.
+        for feature in features:
+            relations = feature["labels"]
+            temp = list()
+            for rel in relations:
+                temp.append(rel + [self.num_class] * (max_n_rels - len(rel)))
+            relations = torch.tensor(temp, dtype=torch.long)
+            feature["labels"] = relations
+
         return features, re_fre, len_freq
 
     def get_features(self, tokenizer):

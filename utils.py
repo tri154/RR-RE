@@ -8,6 +8,7 @@ def move_to_cuda(
      hts,
      n_entities,
      n_rels,
+     labels,
      device
 ):
     if device == 'cpu':
@@ -30,7 +31,8 @@ def move_to_cuda(
             "n_entities": n_entities.cpu(),
             "n_rels": n_rels.cpu(),
         }
-    return output
+        labels = labels.cuda(non_blocking=True)
+    return output, labels
 
 
 def collate_fn(batch, training):
@@ -56,7 +58,10 @@ def collate_fn(batch, training):
     hts = [f["hts"] for f in batch]
     n_rels = [len(ts) for ts in hts]
     hts = torch.cat(hts, dim=0)
+
+
     labels = [f["labels"] for f in batch]
+    labels = torch.cat(labels, dim=0)
 
     input_ids = input_ids.long()
     input_mask = input_mask.bool()
@@ -64,6 +69,8 @@ def collate_fn(batch, training):
     hts = hts.long()
     n_entities = torch.tensor(n_entities, dtype=torch.long)
     n_rels = torch.tensor(n_rels, dtype=torch.long)
+
+    labels = labels.long()
 
     output = {
         "input_ids": input_ids,

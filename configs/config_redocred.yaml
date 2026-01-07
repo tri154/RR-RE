@@ -42,7 +42,9 @@ tester:
   batch_size: 8
 
 loss:
-  temp: "this is loss"
+  temp: this is loss
 
 model:
-  temp: "this is model"
+  emb_size: 768
+  block_size: 64
+  num_class: ${dataset.num_class}

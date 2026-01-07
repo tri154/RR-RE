@@ -66,13 +66,14 @@ class Trainer:
         tracking_loss = 0.0
 
         for idx_batch, (batch_input, batch_label) in enumerate(self.train_loader):
-            batch_input = move_to_cuda(**batch_input, device=device)
+            batch_input, batch_label = move_to_cuda(**batch_input, labels=batch_label, device=device)
             # TODO: move batch_label to cuda if needed.
 
             self.model.train()
             batch_logits = self.model(**batch_input)
-            continue
             batch_loss = self.loss_fn.compute_loss(batch_logits, batch_label)
+            breakpoint()
+            continue
             (batch_loss / self.grad_accum_step).backward()
 
             # DEBUG
