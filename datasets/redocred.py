@@ -164,14 +164,18 @@ class ReDocRED:
         log.info(f"Max seq len: {max(list(len_freq.keys()))} .")
         log.info(f"max number of rels: {max_n_rels} .")
 
-        # CHANGED: padding labels here.
+        # CHANGED: padding labels here. padding_value.
         for feature in features:
             relations = feature["labels"]
             temp = list()
+            mask = list()
             for rel in relations:
-                temp.append(rel + [self.num_class] * (max_n_rels - len(rel)))
+                temp.append(rel + [0] * (max_n_rels - len(rel)))
+                mask.append([False] * len(rel) + [True] * (max_n_rels - len(rel)))
             relations = torch.tensor(temp, dtype=torch.long)
+            mask = torch.tensor(mask, dtype=torch.bool)
             feature["labels"] = relations
+            feature["labels_mask"] = mask
 
         return features, re_fre, len_freq
 
