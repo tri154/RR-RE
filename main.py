@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 @hydra.main(version_base=None, config_path="configs", config_name="config_redocred")
 def main(cfg: DictConfig):
     OmegaConf.resolve(cfg)
+    # DEBUG
     hard_seed(cfg.seed)
     log.info(OmegaConf.to_yaml(cfg))
     dataset = ReDocRED(cfg.dataset)

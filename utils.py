@@ -300,6 +300,14 @@ def hard_seed(seed):
     torch.use_deterministic_algorithms(True, warn_only=True)
 
 
+def logsumexp_wo_cat(ts1, ts2):
+    lse1 = torch.logsumexp(ts1, dim=1)
+    lse2 = torch.logsumexp(ts2, dim=1)
+    return torch.logaddexp(lse1, lse2)
+
+def logsubexp(a, b):
+    # requires a > b elementwise
+    return a + torch.log1p(-torch.exp(b - a))
 
 def load_json(p):
     with open(p, 'r') as file:
