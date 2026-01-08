@@ -1,3 +1,4 @@
+seed: 25
 result_path: ${hydra:runtime.output_dir}
 
 dataset:

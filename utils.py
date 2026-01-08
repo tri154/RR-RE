@@ -3,7 +3,10 @@ from torch.nn.utils.rnn import pad_sequence
 import time
 import torch
 from contextlib import contextmanager
+import random
+import numpy
 
+import logging
 
 def move_to_cuda(
      input_ids,
@@ -207,3 +210,85 @@ def benchmark(
 
     breakpoint()
     return results
+
+
+def check_tensor(
+    tensor: torch.Tensor,
+    name: str,
+    logger: logging.Logger,
+    raise_on_error: bool = False,
+) -> bool:
+    """
+    Check a tensor for NaN / Inf values and log using the caller's logger.
+
+    Args:
+        tensor: torch.Tensor to check
+        name: human-readable tensor name
+        logger: logger from calling file (logging.getLogger(__name__))
+        raise_on_error: raise RuntimeError if invalid values found
+
+    Returns:
+        True if tensor is clean, False otherwise
+    """
+
+    if tensor is None:
+        logger.error(f"{name} is None")
+        if raise_on_error:
+            raise RuntimeError(f"{name} is None")
+        return False
+
+    if not torch.is_tensor(tensor):
+        logger.error(f"{name} is not a torch.Tensor (type={type(tensor)})")
+        if raise_on_error:
+            raise RuntimeError(f"{name} is not a torch.Tensor")
+        return False
+
+    if tensor.numel() == 0:
+        logger.error(f"{name} is empty (numel=0)")
+        if raise_on_error:
+            raise RuntimeError(f"{name} is empty")
+        return False
+
+    # Fast checks (GPU-safe)
+    has_nan = torch.isnan(tensor).any()
+    has_inf = torch.isinf(tensor).any()
+
+    if not (has_nan or has_inf):
+        # logger.info(
+        #     f"{name} OK | shape={tuple(tensor.shape)} "
+        #     f"dtype={tensor.dtype} device={tensor.device}"
+        # )
+        return True
+
+    # Only sync if needed
+    has_nan = has_nan.item()
+    has_inf = has_inf.item()
+
+    msg = (
+        f"{name} INVALID | "
+        f"NaN={has_nan}, Inf={has_inf}, "
+        f"shape={tuple(tensor.shape)}, "
+        f"dtype={tensor.dtype}, "
+        f"device={tensor.device}"
+    )
+
+    logger.warning(msg)
+
+    if raise_on_error:
+        raise RuntimeError(msg)
+
+    return False
+
+
+
+def hard_seed(seed):
+    random.seed(seed)
+    numpy.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    torch.backends.cudnn.enabled = False
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms(True, warn_only=True)

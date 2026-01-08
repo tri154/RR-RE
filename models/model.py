@@ -2,7 +2,13 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
-from utils import cumsum_with_zero
+import logging
+log = logging.getLogger(__name__)
+
+from utils import cumsum_with_zero, check_tensor
+from functools import partial
+
+ct = partial(check_tensor, logger=log)
 
 SMALL_NEGATIVE = -1e10
 
@@ -21,7 +27,15 @@ class DocREModel(nn.Module):
 
         self.head_extractor = nn.Linear(self.hidden_size * 2, self.emb_size)
         self.tail_extractor = nn.Linear(self.hidden_size * 2, self.emb_size)
-        self.bilinear = nn.Linear(self.emb_size * self.block_size, self.num_class)
+        self.bilinear_nn = nn.Linear(self.emb_size * self.block_size, self.num_class)
+
+
+    def __bilinear(self, hs, ts):
+        hs = hs.view(-1, self.emb_size // self.block_size, self.block_size)
+        ts = ts.view(-1, self.emb_size // self.block_size, self.block_size)
+        bl = (hs.unsqueeze(3) * ts.unsqueeze(2)).view(-1, self.emb_size * self.block_size)
+        logits = self.bilinear_nn(bl)
+        return logits
 
 
     def get_entity_embs_attns(self, seq_embs, attentions, entity_pos, n_entities):
@@ -93,6 +107,8 @@ class DocREModel(nn.Module):
         dvc = input_ids.device
 
         seq_embs, attentions = self.pretrain(input_ids, input_mask, output_attentions=True)
+        ct(seq_embs, name="seq_embs")
+        ct(attentions, name="attentions")
 
         seq_embs = F.pad(seq_embs, (0, 0, 0, 1), value=SMALL_NEGATIVE)
         attentions = F.pad(attentions, ((0, 0, 0, 1)), value=0.0)
@@ -103,15 +119,28 @@ class DocREModel(nn.Module):
             entity_pos,
             n_entities
         )
+        ct(entity_embs, name="entity_embs")
+        ct(entity_attns, name="entity_attns")
+
         hts = self.offset_hts(hts, n_entities, n_rels)
         hs, ts = self.get_ht(entity_embs, hts)
         rs = self.get_rs(seq_embs, entity_attns, hts, n_rels)
+        ct(hs, name="hs")
+        ct(ts, name="ts")
+        ct(rs, name="rs")
 
-        hs = torch.tanh(self.head_extractor(torch.cat([hs, rs], dim=1)))
-        ts = torch.tanh(self.tail_extractor(torch.cat([ts, rs], dim=1)))
-        hs = hs.view(-1, self.emb_size // self.block_size, self.block_size)
-        ts = ts.view(-1, self.emb_size // self.block_size, self.block_size)
-        bl = (hs.unsqueeze(3) * ts.unsqueeze(2)).view(-1, self.emb_size * self.block_size)
-        logits = self.bilinear(bl)
+        hs = torch.cat([hs, rs], dim=1)
+        ts = torch.cat([ts, rs], dim=1)
+        hs = torch.tanh(self.head_extractor(hs))
+        ts = torch.tanh(self.head_extractor(ts))
+        ct(hs, name="hs_tanh")
+        ct(ts, name="ts_tanh")
+        logits = self.__bilinear(hs, ts)
+        ct(logits, name="logits")
 
-        return logits
+        if self.training:
+            return logits
+        else:
+            preds = logits > logits[:, 0, None]
+            preds[:, 0] = (preds.sum(1) == 0)
+            return preds

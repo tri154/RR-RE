@@ -8,7 +8,7 @@ from models import Encoder, DocREModel
 from trainer import Trainer
 from tester import Tester
 from loss import Loss
-from utils import collate_fn
+from utils import collate_fn, hard_seed
 
 import logging
 log = logging.getLogger(__name__)
@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 @hydra.main(version_base=None, config_path="configs", config_name="config_redocred")
 def main(cfg: DictConfig):
     OmegaConf.resolve(cfg)
+    hard_seed(cfg.seed)
     log.info(OmegaConf.to_yaml(cfg))
     dataset = ReDocRED(cfg.dataset)
     encoder = Encoder(cfg.encoder)
