@@ -60,6 +60,7 @@ class Trainer:
         return opt, sched
 
     def train_one_epoch(self, current_epoch):
+        # DEBUG
         device = self.device
 
         total_loss = 0.0
@@ -82,6 +83,8 @@ class Trainer:
             is_final_step = idx_batch == len(self.train_loader) - 1
             is_eval_step = self.eval_freq > 0 and idx_batch % self.eval_freq == 0 and idx_batch != 0
             is_evaluated = is_final_step or is_eval_step
+            # DEBUG
+            is_evaluated = False
 
             if is_updated:
                 if self.max_grad_norm > 0:
