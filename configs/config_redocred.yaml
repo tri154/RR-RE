@@ -41,6 +41,9 @@ trainer:
 
 tester:
   batch_size: 8
+  rel2id: ${dataset.path}/rel2id.json
+  data_dir: ${dataset.path}
+  sets: ${dataset.sets}
 
 loss:
   temp: this is loss

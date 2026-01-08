@@ -5,6 +5,8 @@ import torch
 from contextlib import contextmanager
 import random
 import numpy
+import pickle as pkl
+import json
 
 import logging
 
@@ -15,9 +17,9 @@ def move_to_cuda(
      hts,
      n_entities,
      n_rels,
-     labels,
-     labels_mask,
-     device
+     device,
+     labels=None,
+     labels_mask=None,
 ):
     if device == 'cpu':
         output = {
@@ -29,10 +31,11 @@ def move_to_cuda(
             "n_entities": n_entities,
             "n_rels": n_rels,
         }
-        label_out = {
-            "labels": labels,
-            "labels_mask": labels_mask,
-        }
+        if labels is not None:
+            label_out = {
+                "labels": labels,
+                "labels_mask": labels_mask,
+            }
     else:
         output = {
             "input_ids": input_ids.cuda(non_blocking=True),
@@ -43,11 +46,15 @@ def move_to_cuda(
             "n_entities": n_entities.cpu(),
             "n_rels": n_rels.cpu(),
         }
-        label_out = {
-            "labels": labels.cuda(non_blocking=True),
-            "labels_mask": labels_mask.cuda(non_blocking=True)
-        }
-    return output, label_out
+        if labels is not None:
+            label_out = {
+                "labels": labels.cuda(non_blocking=True),
+                "labels_mask": labels_mask.cuda(non_blocking=True)
+            }
+    if labels is not None:
+        return output, label_out
+    else:
+        return output
 
 
 def collate_fn(batch, training):
@@ -280,7 +287,6 @@ def check_tensor(
     return False
 
 
-
 def hard_seed(seed):
     random.seed(seed)
     numpy.random.seed(seed)
@@ -292,3 +298,19 @@ def hard_seed(seed):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
     torch.use_deterministic_algorithms(True, warn_only=True)
+
+
+
+def load_json(p):
+    with open(p, 'r') as file:
+        data = json.load(file)
+    return data
+
+def load_cache(path):
+    with open(path, 'rb') as file:
+        loadded_data = pkl.load(file)
+    return loadded_data
+
+def save_cache(data, path):
+    with open(path, 'wb') as file:
+        pkl.dump(data, file)

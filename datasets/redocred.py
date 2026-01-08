@@ -1,31 +1,12 @@
 import os.path as path
-import json
 import numpy as np
-import pickle as pkl
 from collections import defaultdict
 import torch
-import torch.functional as F
-from torch.nn.utils.rnn import pad_sequence
+
+from utils import load_json, load_cache, save_cache
 
 import logging
 log = logging.getLogger(__name__)
-
-def _load_json(p):
-    with open(p, 'r') as file:
-        data = json.load(file)
-    return data
-
-
-def _load_cache(path):
-    with open(path, 'rb') as file:
-        loadded_data = pkl.load(file)
-    return loadded_data
-
-
-def _save_cache(data, path):
-    with open(path, 'wb') as file:
-        pkl.dump(data, file)
-
 
 class ReDocRED:
     name: str
@@ -39,7 +20,7 @@ class ReDocRED:
         super().__init__()
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, dataset_cfg.get(name))
-        self.rel2id = _load_json(self.rel2id)
+        self.rel2id = load_json(self.rel2id)
 
 
     def __read_docred(self, file_in, tokenizer, max_seq_length=1024, max_docs=None):
@@ -52,8 +33,7 @@ class ReDocRED:
         max_n_rels = -1
         # if file_in == "":
         #     return None
-        with open(file_in, "r") as fh:
-            data = json.load(fh)
+        data = load_json(file_in)
 
         if max_docs is not None:
             data = data[:max_docs]
@@ -183,13 +163,13 @@ class ReDocRED:
     def get_features(self, tokenizer):
         if path.exists(self.cached_location):
             log.info("use cached dataset.")
-            return _load_cache(self.cached_location)
+            return load_cache(self.cached_location)
 
         res = dict()
         for k, file_path in self.sets.items():
             log.info(f"{k} stats: ")
             features, re_fre, len_freq  = self.__read_docred(file_path, tokenizer, self.max_seq_length)
             res[k] = features
-        _save_cache(res, self.cached_location)
+        save_cache(res, self.cached_location)
         log.info("dataset cached.")
         return res

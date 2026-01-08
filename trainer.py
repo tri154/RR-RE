@@ -83,9 +83,6 @@ class Trainer:
             is_final_step = idx_batch == len(self.train_loader) - 1
             is_eval_step = self.eval_freq > 0 and idx_batch % self.eval_freq == 0 and idx_batch != 0
             is_evaluated = is_final_step or is_eval_step
-            # DEBUG
-            is_evaluated = False
-            # DEBUG
 
             if is_updated:
                 if self.max_grad_norm > 0:
@@ -95,8 +92,8 @@ class Trainer:
                 self.sched.step()
 
             if is_evaluated:
-                d_score = self.tester.test(self.model, tag='dev')
-                log.info(f"batch id: {idx_batch}, Dev result : {d_score}")
+                d_score, d_output = self.tester.test(self.model, tag='dev')
+                log.info(f"batch id: {idx_batch}, Dev result : {d_output} .")
                 if d_score > self.best_score_dev:
                     self.best_score_dev = d_score
                     torch.save(self.model.state_dict(), self.model_save)
@@ -126,7 +123,7 @@ class Trainer:
         self.opt, self.sched = self.prepare_optimizer_scheduler(self.train_loader)
         self.cur_epoch = 0
 
-        self.best_f1_dev = 0
+        self.best_score_dev= 0
         for idx_epoch in range(self.epochs):
             log.info(f'epoch {idx_epoch + 1}/{self.epochs} ' + '=' * 100)
 
@@ -135,9 +132,8 @@ class Trainer:
             log.info(f"epoch: {idx_epoch + 1}, loss={epoch_loss} .")
             self.cur_epoch += 1
 
-        # DEBUG
-        # self.model.load_state_dict(torch.load(self.model_save, map_location=self.device))
-        # t_tp, t_fp, t_fn, self.precision_test, self.recall_test, self.f1_test = self.tester.test(self.model, dataset='test', run_both=run_both)
-        # log.info(f"Test result: TP={t_tp}, FP={t_fp}, FN={t_fn}, P={self.precision_test:.10f}, R={self.recall_test:.10f}, F1={self.f1_test:.10f}")
+        self.model.load_state_dict(torch.load(self.model_save, map_location=self.device))
+        self.score_test, test_output = self.tester.test(self.model, dataset='test')
+        log.info(f"Test result: {test_output} .")
 
-        return self.best_f1_dev
+        return self.best_score_dev
