@@ -21,8 +21,8 @@ encoder:
 
 trainer:
   epochs: 30
-  batch_size: 4
-  grad_accum_step: 1
+  batch_size: 2
+  grad_accum_step: 2
   eval_freq: -1
   print_freq: 200
   max_grad_norm: -1

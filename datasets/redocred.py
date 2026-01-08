@@ -151,7 +151,7 @@ class ReDocRED:
             temp = list()
             mask = list()
             for rel in relations:
-                temp.append(rel + [0] * (max_n_rels - len(rel)))
+                temp.append(rel + [self.num_class] * (max_n_rels - len(rel)))
                 mask.append([False] * len(rel) + [True] * (max_n_rels - len(rel)))
             relations = torch.tensor(temp, dtype=torch.long)
             mask = torch.tensor(mask, dtype=torch.bool)
