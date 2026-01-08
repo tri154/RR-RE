@@ -5,9 +5,9 @@ import logging
 log = logging.getLogger(__name__)
 
 from utils import benchmark, check_tensor, logsubexp
-from functools import partial
 
-ct = partial(check_tensor, logger=log)
+# from functools import partial
+# ct = partial(check_tensor, logger=log)
 
 class Loss:
     def __init__(self, loss_cfg):
@@ -28,6 +28,7 @@ class Loss:
         )
         selected_logits.masked_fill_(mask, value=float("-inf"))
         na_col = logits[:, 0]
+
         loss1 = selected_logits - torch.logsumexp(
             torch.cat([selected_logits, na_col.unsqueeze(dim=-1)], dim=1),
             dim=1,
@@ -44,7 +45,7 @@ class Loss:
 
         loss2 = na_col - logsubexp(
             torch.logsumexp(logits, dim=1),
-            torch.logsumexp(selected_logits, dim=1).masked_fill_(is_na, value=float("-inf"))
+            torch.logsumexp(selected_logits, dim=1).masked_fill(is_na, value=float("-inf"))
         )
 
         loss = - (loss1 + loss2).mean()

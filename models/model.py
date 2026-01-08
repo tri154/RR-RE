@@ -6,9 +6,9 @@ import logging
 log = logging.getLogger(__name__)
 
 from utils import cumsum_with_zero, check_tensor
-from functools import partial
+# from functools import partial
 
-ct = partial(check_tensor, logger=log)
+# ct = partial(check_tensor, logger=log)
 
 SMALL_NEGATIVE = -1e10
 
@@ -103,12 +103,8 @@ class DocREModel(nn.Module):
         # If attention is must, try implement another roberta encoder layer, freeze pretrained model.
         # https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html
         # https://chatgpt.com/c/695d1003-361c-8322-938f-f2cf973e10ce
-        bs = input_ids.shape[0]
-        dvc = input_ids.device
 
         seq_embs, attentions = self.pretrain(input_ids, input_mask, output_attentions=True)
-        ct(seq_embs, name="seq_embs")
-        ct(attentions, name="attentions")
 
         seq_embs = F.pad(seq_embs, (0, 0, 0, 1), value=SMALL_NEGATIVE)
         attentions = F.pad(attentions, ((0, 0, 0, 1)), value=0.0)
@@ -119,24 +115,16 @@ class DocREModel(nn.Module):
             entity_pos,
             n_entities
         )
-        ct(entity_embs, name="entity_embs")
-        ct(entity_attns, name="entity_attns")
 
         hts = self.offset_hts(hts, n_entities, n_rels)
         hs, ts = self.get_ht(entity_embs, hts)
         rs = self.get_rs(seq_embs, entity_attns, hts, n_rels)
-        ct(hs, name="hs")
-        ct(ts, name="ts")
-        ct(rs, name="rs")
 
         hs = torch.cat([hs, rs], dim=1)
         ts = torch.cat([ts, rs], dim=1)
         hs = torch.tanh(self.head_extractor(hs))
         ts = torch.tanh(self.head_extractor(ts))
-        ct(hs, name="hs_tanh")
-        ct(ts, name="ts_tanh")
         logits = self.__bilinear(hs, ts)
-        ct(logits, name="logits")
 
         if self.training:
             return logits
