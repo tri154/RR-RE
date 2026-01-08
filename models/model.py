@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 from utils import cumsum_with_zero, check_tensor
 from functools import partial
 
-ct = partial(check_tensor, logger=log)
+# ct = partial(check_tensor, logger=log)
 
 SMALL_NEGATIVE = -1e10
 
@@ -117,24 +117,16 @@ class DocREModel(nn.Module):
             entity_pos,
             n_entities
         )
-        # ct(entity_embs, "entity_embs")
-        # ct(entity_attns, "entity_attns")
 
         hts = self.offset_hts(hts, n_entities, n_rels)
         hs, ts = self.get_ht(entity_embs, hts)
         rs = self.get_rs(seq_embs, entity_attns, hts, n_rels)
-        # ct(hs, "hs")
-        # ct(ts, "ts")
-        # ct(rs, "rs")
 
         hs = torch.cat([hs, rs], dim=1)
         ts = torch.cat([ts, rs], dim=1)
         hs = torch.tanh(self.head_extractor(hs))
         ts = torch.tanh(self.head_extractor(ts))
-        # ct(hs, "hs_tanh")
-        # ct(ts, "ts_tanh")
         logits = self.__bilinear(hs, ts)
-        # ct(logits, "logits")
 
         if self.training:
             return logits
