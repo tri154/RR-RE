@@ -27,8 +27,9 @@ class Loss:
             index=labels
         )
         selected_logits.masked_fill_(mask, value=float("-inf"))
+        na_col = logits[:, 0]
         loss1 = selected_logits - torch.logsumexp(
-            torch.cat([selected_logits, logits[:, 0, None]], dim=1),
+            torch.cat([selected_logits, na_col.unsqueeze(dim=-1)], dim=1),
             dim=1,
             keepdim=True
         )
@@ -41,19 +42,10 @@ class Loss:
         rev_n_labels = 1 / (~mask).sum(dim=1)
         loss1 = loss1 * rev_n_labels
 
-        def o1():
-            logits_exp = selected_logits.exp().sum(dim=1)
-            logits_exp.masked_fill_(is_na, value=0.0)
-            loss2 = logits[:, 0] - torch.log(logits.exp().sum(dim=1) - logits_exp)
-            return loss2
+        loss2 = na_col - logsubexp(
+            torch.logsumexp(logits, dim=1),
+            torch.logsumexp(selected_logits, dim=1).masked_fill_(is_na, value=float("-inf"))
+        )
 
-        def o2():
-            loss2 = logits[:, 0] - logsubexp(
-                torch.logsumexp(logits, dim=1),
-                torch.logsumexp(selected_logits, dim=1).masked_fill_(is_na, value=float("-inf"))
-                )
-            return loss2
-        benchmark([o1, o2])
-        loss = loss1 + loss2
-        loss = - loss.mean()
+        loss = - (loss1 + loss2).mean()
         return loss
