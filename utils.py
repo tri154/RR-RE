@@ -305,9 +305,13 @@ def logsumexp_wo_cat(ts1, ts2):
     lse2 = torch.logsumexp(ts2, dim=1)
     return torch.logaddexp(lse1, lse2)
 
-def logsubexp(a, b):
+def logsubexp(a, b, eps=1e-8):
     # requires a > b elementwise
-    return a + torch.log1p(-torch.exp(b - a))
+    return a + torch.log1p(
+        -torch.exp(
+            torch.clamp(b - a, max=-eps)
+        )
+    )
 
 def load_json(p):
     with open(p, 'r') as file:

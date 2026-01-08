@@ -48,7 +48,7 @@ class Loss:
 
         a = torch.logsumexp(logits, dim=1)
         b = torch.logsumexp(selected_logits, dim=1).masked_fill(is_na, value=float("-inf"))
-        ct(a, "a_tensor")
+
         loss2 = na_col - logsubexp(
             a,
             b
