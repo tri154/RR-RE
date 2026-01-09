@@ -30,7 +30,7 @@ class Trainer:
     warmup_ratio: float
     optimizer_cfg: Any
 
-    def __init__(self, trainer_cfg, model, tester, loss, *,train_features, train_collate_fn):
+    def __init__(self, trainer_cfg, model, tester, loss, *,train_features, train_collate_fn, wandb_run=None):
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, trainer_cfg.get(name))
 
@@ -40,6 +40,14 @@ class Trainer:
         self.train_features = train_features
         self.train_collate_fn = train_collate_fn
         self.loss_fn = loss
+        self.wandb_run = wandb_run
+
+    def wandb_log(self, data, cur_step):
+        if self.wandb_run is None:
+            return
+        self.wandb_run.log(data, step=cur_step)
+
+
 
     def prepare_optimizer_scheduler(self, train_loader):
         grouped_params = defaultdict(list)
@@ -55,6 +63,8 @@ class Trainer:
 
         num_updates = math.ceil(len(train_loader) / self.grad_accum_step) * self.epochs
         num_warmups = int(num_updates * self.warmup_ratio)
+        log.info(f"Total update steps: {num_updates}")
+        log.info(f"Total warmup steps: {num_warmups}")
         sched = get_linear_schedule_with_warmup(opt, num_warmups, num_updates)
 
         return opt, sched
@@ -89,10 +99,12 @@ class Trainer:
                 self.opt.step()
                 self.opt.zero_grad()
                 self.sched.step()
+                self.cur_step += 1
 
             if is_evaluated:
                 d_score, d_output = self.tester.test(self.model, tag='dev')
                 log.info(f"batch id: {idx_batch}, Dev result : {d_output} .")
+                self.wandb_log(d_output, self.cur_step)
                 if d_score > self.best_score_dev:
                     self.best_score_dev = d_score
                     self.best_output_dev = d_output
@@ -100,6 +112,7 @@ class Trainer:
 
             if idx_batch % self.print_freq == 0 and idx_batch != 0:
                 log.info(f"batch id: {idx_batch}, batch loss: {tracking_loss/self.print_freq}")
+                self.wandb_log({"loss": tracking_loss/self.print_freq}, self.cur_step)
                 tracking_loss = 0.0
 
             batch_loss_item = batch_loss.item()
@@ -122,6 +135,7 @@ class Trainer:
 
         self.opt, self.sched = self.prepare_optimizer_scheduler(self.train_loader)
         self.cur_epoch = 0
+        self.cur_step = 0
 
         self.best_score_dev= 0
         for idx_epoch in range(self.epochs):
@@ -136,5 +150,6 @@ class Trainer:
         log.info(f"Best dev result: {self.best_output_dev}")
         self.score_test, test_output = self.tester.test(self.model, tag='test')
         log.info(f"Test result: {test_output} .")
+        self.wandb_log(test_output, cur_step=self.cur_step)
 
         return self.best_score_dev

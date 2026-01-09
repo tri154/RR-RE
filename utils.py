@@ -7,6 +7,8 @@ import random
 import numpy
 import pickle as pkl
 import json
+import wandb
+import omegaconf
 
 import logging
 
@@ -326,3 +328,16 @@ def load_cache(path):
 def save_cache(data, path):
     with open(path, 'wb') as file:
         pkl.dump(data, file)
+
+
+def init_wandb(cfg):
+    run = wandb.init(
+        entity=cfg.wandb.entity,
+        # Set the wandb project where this run will be logged.
+        project=cfg.wandb.project,
+        # Track hyperparameters and run metadata.
+        config = omegaconf.OmegaConf.to_container(
+            cfg, resolve=True, throw_on_missing=True
+        )
+    )
+    return run

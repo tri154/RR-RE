@@ -39,6 +39,11 @@ trainer:
         - 0.98 # beta2
       eps: !!float 1e-9
 
+wandb:
+  used: True
+  entity: triyn01052004-vietnam-national-university-hanoi
+  project: RR-RE
+
 tester:
   batch_size: 8
   rel2id: ${dataset.path}/rel2id.json

@@ -8,16 +8,17 @@ from models import Encoder, DocREModel
 from trainer import Trainer
 from tester import Tester
 from loss import Loss
-from utils import collate_fn, seeding
+from utils import collate_fn, seeding, init_wandb
 
 import logging
 log = logging.getLogger(__name__)
 
+
 @hydra.main(version_base=None, config_path="configs", config_name="config_redocred")
 def main(cfg: DictConfig):
     OmegaConf.resolve(cfg)
-    # DEBUG
-    seeding(cfg.seed, hard=True)
+    run = init_wandb(cfg) if cfg.wandb.used else None
+    seeding(cfg.seed, hard=False)
     log.info(OmegaConf.to_yaml(cfg))
     dataset = ReDocRED(cfg.dataset)
     encoder = Encoder(cfg.encoder)
@@ -37,10 +38,14 @@ def main(cfg: DictConfig):
         tester,
         loss,
         train_features=features["train"],
-        train_collate_fn=partial(collate_fn, training=True)
+        train_collate_fn=partial(collate_fn, training=True),
+        wandb_run=run
     )
 
     trainer.train()
+
+    if run is not None:
+        run.finish()
 
 if __name__ == "__main__":
     main()

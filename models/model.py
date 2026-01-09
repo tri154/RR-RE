@@ -2,13 +2,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
-# import logging
-# log = logging.getLogger(__name__)
-
 from utils import cumsum_with_zero, check_tensor
-# from functools import partial
-
-# ct = partial(check_tensor, logger=log)
 
 SMALL_NEGATIVE = -1e10
 

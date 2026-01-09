@@ -4,3 +4,4 @@ pyrefly.toml
 outputs/**
 data/**
 temp/**
+wandb/**
