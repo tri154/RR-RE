@@ -1,16 +1,15 @@
 import torch
 import torch.nn.functional as F
+import torch.nn as nn
 
-class Loss:
+class Loss(nn.Module):
     def __init__(self, loss_cfg):
+        super().__init__()
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, loss_cfg.get(name))
-        self.compute_loss = self.at_loss
 
 
-    def at_loss(self, logits, labels_out):
-        labels = labels_out["labels"]
-        mask = labels_out["labels_mask"]
+    def at_loss(self, logits, labels, mask):
         n_rels, n_class = logits.shape
 
         selected_logits = torch.gather(
@@ -49,3 +48,7 @@ class Loss:
 
         loss = - (loss1 + loss2).mean()
         return loss
+
+
+    def forward(self, logits, labels, labels_mask):
+        return self.at_loss(logits, labels, labels_mask)

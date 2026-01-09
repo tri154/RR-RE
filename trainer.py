@@ -30,7 +30,7 @@ class Trainer:
     warmup_ratio: float
     optimizer_cfg: Any
 
-    def __init__(self, trainer_cfg, model, tester, loss, *,train_features, train_collate_fn, wandb_run=None):
+    def __init__(self, trainer_cfg, model, tester, *,train_features, train_collate_fn, wandb_run=None):
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, trainer_cfg.get(name))
 
@@ -39,7 +39,6 @@ class Trainer:
         self.tester = tester
         self.train_features = train_features
         self.train_collate_fn = train_collate_fn
-        self.loss_fn = loss
         self.wandb_run = wandb_run
 
     def wandb_log(self, data, cur_step):
@@ -79,8 +78,7 @@ class Trainer:
             batch_input, batch_label = move_to_cuda(**batch_input, **batch_label, device=device)
 
             self.model.train()
-            batch_logits = self.model(**batch_input)
-            batch_loss = self.loss_fn.compute_loss(batch_logits, batch_label)
+            batch_loss = self.model(**batch_input, **batch_label)
             (batch_loss / self.grad_accum_step).backward()
 
             # DEBUG

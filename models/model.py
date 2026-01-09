@@ -12,10 +12,11 @@ class DocREModel(nn.Module):
     block_size: int
     num_class: int
 
-    def __init__(self, model_cfg, pretrain):
+    def __init__(self, model_cfg, pretrain, loss):
         super().__init__()
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, model_cfg.get(name))
+        self.loss_fn = loss
         pretrain.load_model()
         self.pretrain = pretrain
         self.hidden_size = self.pretrain.config.hidden_size
@@ -92,6 +93,8 @@ class DocREModel(nn.Module):
         hts,
         n_entities,
         n_rels,
+        labels=None,
+        labels_mask=None,
     ):
         # TODO: speed when output attentions with not, try another type of attention backends.
         # https://huggingface.co/docs/transformers/attention_interface
@@ -122,7 +125,8 @@ class DocREModel(nn.Module):
         logits = self.__bilinear(hs, ts)
 
         if self.training:
-            return logits
+            loss = self.loss_fn(logits, labels, labels_mask)
+            return loss
         else:
             preds = logits > logits[:, 0, None]
             preds[:, 0] = (preds.sum(1) == 0)

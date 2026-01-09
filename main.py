@@ -20,12 +20,14 @@ def main(cfg: DictConfig):
     run = init_wandb(cfg) if cfg.wandb.used else None
     seeding(cfg.seed, hard=False)
     log.info(OmegaConf.to_yaml(cfg))
+
     dataset = ReDocRED(cfg.dataset)
-    encoder = Encoder(cfg.encoder)
-    features = dataset.get_features(encoder.tokenizer)
-    model = DocREModel(cfg.model, encoder)
 
     loss = Loss(cfg.loss)
+    encoder = Encoder(cfg.encoder)
+    model = DocREModel(cfg.model, encoder, loss)
+
+    features = dataset.get_features(encoder.tokenizer)
     tester = Tester(
         cfg.tester,
         dev_features=features["dev"],
@@ -36,7 +38,6 @@ def main(cfg: DictConfig):
         cfg.trainer,
         model,
         tester,
-        loss,
         train_features=features["train"],
         train_collate_fn=partial(collate_fn, training=True),
         wandb_run=run
