@@ -8,18 +8,16 @@ from models import Encoder, DocREModel
 from trainer import Trainer
 from tester import Tester
 from loss import Loss
-from utils import collate_fn, seeding, init_wandb
-
-import logging
-log = logging.getLogger(__name__)
-
+from utils import collate_fn, seeding, init_wandb, init_dist, load_synced_config, dist_log
 
 @hydra.main(version_base=None, config_path="configs", config_name="config_redocred")
 def main(cfg: DictConfig):
-    OmegaConf.resolve(cfg)
+    RANK, WORLD_SIZE = init_dist()
+    log_info = dist_log(__name__)
+    cfg = load_synced_config(cfg, RANK, WORLD_SIZE)
     run = init_wandb(cfg) if cfg.wandb.used else None
-    seeding(cfg.seed, hard=False)
-    log.info(OmegaConf.to_yaml(cfg))
+    seeding(cfg.seed, hard=False, rank=RANK)
+    if RANK==0: log_info(OmegaConf.to_yaml(cfg))
 
     dataset = ReDocRED(cfg.dataset)
 
@@ -27,7 +25,9 @@ def main(cfg: DictConfig):
     encoder = Encoder(cfg.encoder)
     model = DocREModel(cfg.model, encoder, loss)
 
-    features = dataset.get_features(encoder.tokenizer)
+    features = dataset.get_features(encoder.tokenizer, load_cached=True)
+    # DEBUG
+    breakpoint()
     tester = Tester(
         cfg.tester,
         dev_features=features["dev"],

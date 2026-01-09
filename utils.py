@@ -9,6 +9,10 @@ import pickle as pkl
 import json
 import wandb
 import omegaconf
+import torch.distributed as dist
+import os
+from omegaconf import OmegaConf
+from functools import partial
 
 import logging
 
@@ -289,31 +293,18 @@ def check_tensor(
     return False
 
 
-def seeding(seed, hard=False):
+def seeding(seed, hard=False, rank=0):
+    seed = seed + rank
     random.seed(seed)
     numpy.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
     if hard:
         torch.backends.cudnn.enabled = False
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
         torch.use_deterministic_algorithms(True, warn_only=True)
 
-
-# def logsumexp_wo_cat(ts1, ts2):
-#     lse1 = torch.logsumexp(ts1, dim=1)
-#     lse2 = torch.logsumexp(ts2, dim=1)
-#     return torch.logaddexp(lse1, lse2)
-
-# def logsubexp(a, b, eps=1e-8):
-#     # requires a > b elementwise
-#     return a + torch.log1p(
-#         -torch.exp(
-#             torch.clamp(b - a, max=-eps)
-#         )
-#     )
 
 def load_json(p):
     with open(p, 'r') as file:
@@ -341,3 +332,54 @@ def init_wandb(cfg):
         )
     )
     return run
+
+
+def init_dist():
+    if "LOCAL_RANK" in os.environ:
+        dist.init_process_group(
+            backend="nccl",
+            init_method="env://"
+        )
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+        torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
+
+        return rank, world_size
+
+    return 0, 1
+
+
+def load_synced_config(cfg, rank, world_size):
+    objects = [None]
+    if rank == 0:
+        OmegaConf.resolve(cfg)
+        objects = [cfg]
+
+    if world_size > 1:
+        dist.broadcast_object_list(objects, src=0)
+
+    return objects[0]
+
+def get_dist_info():
+    if dist.is_available() and dist.is_initialized():
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+    else:
+        rank = 0
+        world_size = 1
+    return rank, world_size
+
+def log_info(msg, logger, rank, world_size, log_all=False):
+    if log_all:
+        print(rank, world_size)
+    if log_all and world_size > 1:
+        msg = f"[Rank {rank}, World Size {world_size}]: " + msg
+        logger.info(msg)
+        return
+    if rank == 0:
+        logger.info(msg)
+
+def dist_log(log_name):
+    logger = logging.getLogger(log_name)
+    rank, world_size = get_dist_info()
+    return partial(log_info, logger=logger, rank=rank, world_size=world_size)

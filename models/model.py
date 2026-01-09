@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
-from utils import cumsum_with_zero, check_tensor
+from utils import cumsum_with_zero
 
 SMALL_NEGATIVE = -1e10
 

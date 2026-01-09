@@ -1,15 +1,16 @@
+import os
 import os.path as path
 import numpy as np
 from collections import defaultdict
+import tarfile
 import torch
 
-from utils import load_json, load_cache, save_cache
-
-import logging
-log = logging.getLogger(__name__)
+from utils import load_json, load_cache, save_cache, dist_log
+log_info = None
 
 class ReDocRED:
     name: str
+    path: str
     sets: dict
     num_class: int
     max_seq_length: int
@@ -20,7 +21,9 @@ class ReDocRED:
         super().__init__()
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, dataset_cfg.get(name))
+        self.unzip_data()
         self.rel2id = load_json(self.rel2id)
+        global log_info; log_info = dist_log(__name__)
 
 
     def __read_docred(self, file_in, tokenizer, max_seq_length=1024, max_docs=None):
@@ -137,13 +140,13 @@ class ReDocRED:
                         'title': sample['title']}
             features.append(feature)
 
-        log.info("# of documents {}.".format(i_line))
-        log.info("# of positive examples {}.".format(pos_samples))
-        log.info("# of negative examples {}.".format(neg_samples))
+        log_info("# of documents {}.".format(i_line))
+        log_info("# of positive examples {}.".format(pos_samples))
+        log_info("# of negative examples {}.".format(neg_samples))
         re_fre = 1. * re_fre / (pos_samples + neg_samples)
         # log("# rels per doc".format(1. * rel_nums / i_line))
-        log.info(f"Max seq len: {max(list(len_freq.keys()))} .")
-        log.info(f"max number of rels: {max_n_rels} .")
+        log_info(f"Max seq len: {max(list(len_freq.keys()))} .")
+        log_info(f"max number of rels: {max_n_rels} .")
 
         # CHANGED: padding labels here. padding_value.
         for feature in features:
@@ -160,16 +163,29 @@ class ReDocRED:
 
         return features, re_fre, len_freq
 
-    def get_features(self, tokenizer):
-        if path.exists(self.cached_location):
-            log.info("use cached dataset.")
-            return load_cache(self.cached_location)
+    def unzip_data(self):
+        if not os.path.exists(self.sets.train):
+            with tarfile.open(path.join(self.path, "data.tar.gz"), "r:gz") as tar:
+                tar.extractall(path=self.path)
+            log_info("No json files found, extract data.")
+
+
+    def get_features(self, tokenizer, load_cached):
+        if load_cached:
+            if path.exists(self.cached_location):
+                log_info("use cached dataset.", log_all=True)
+                return load_cache(self.cached_location)
+            else:
+                raise Exception("run 'python prepare_data.py' first.")
 
         res = dict()
+
+        self.unzip_data()
+
         for k, file_path in self.sets.items():
-            log.info(f"{k} stats: ")
+            log_info(f"{k} stats: ")
             features, re_fre, len_freq  = self.__read_docred(file_path, tokenizer, self.max_seq_length)
             res[k] = features
         save_cache(res, self.cached_location)
-        log.info("dataset cached.")
+        log_info("dataset cached.")
         return res
