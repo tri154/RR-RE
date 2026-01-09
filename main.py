@@ -26,8 +26,6 @@ def main(cfg: DictConfig):
     model = DocREModel(cfg.model, encoder, loss)
 
     features = dataset.get_features(encoder.tokenizer, load_cached=True)
-    # DEBUG
-    breakpoint()
     tester = Tester(
         cfg.tester,
         dev_features=features["dev"],

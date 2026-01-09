@@ -17,7 +17,7 @@ encoder:
   name: roberta-large
   transformer_type: roberta # roberta only
   attn_impl: null # null | sdpa
-  lazy: True
+  lazy: False
 
 trainer:
   epochs: 30
@@ -40,7 +40,7 @@ trainer:
       eps: !!float 1e-9
 
 wandb:
-  used: True
+  used: False
   entity: triyn01052004-vietnam-national-university-hanoi
   project: RR-RE
 

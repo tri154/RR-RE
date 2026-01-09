@@ -370,8 +370,6 @@ def get_dist_info():
     return rank, world_size
 
 def log_info(msg, logger, rank, world_size, log_all=False):
-    if log_all:
-        print(rank, world_size)
     if log_all and world_size > 1:
         msg = f"[Rank {rank}, World Size {world_size}]: " + msg
         logger.info(msg)
