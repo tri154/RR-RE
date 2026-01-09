@@ -287,31 +287,31 @@ def check_tensor(
     return False
 
 
-def hard_seed(seed):
+def seeding(seed, hard=False):
     random.seed(seed)
     numpy.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+    if hard:
+        torch.backends.cudnn.enabled = False
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        torch.use_deterministic_algorithms(True, warn_only=True)
 
-    torch.backends.cudnn.enabled = False
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
-    torch.use_deterministic_algorithms(True, warn_only=True)
 
+# def logsumexp_wo_cat(ts1, ts2):
+#     lse1 = torch.logsumexp(ts1, dim=1)
+#     lse2 = torch.logsumexp(ts2, dim=1)
+#     return torch.logaddexp(lse1, lse2)
 
-def logsumexp_wo_cat(ts1, ts2):
-    lse1 = torch.logsumexp(ts1, dim=1)
-    lse2 = torch.logsumexp(ts2, dim=1)
-    return torch.logaddexp(lse1, lse2)
-
-def logsubexp(a, b, eps=1e-8):
-    # requires a > b elementwise
-    return a + torch.log1p(
-        -torch.exp(
-            torch.clamp(b - a, max=-eps)
-        )
-    )
+# def logsubexp(a, b, eps=1e-8):
+#     # requires a > b elementwise
+#     return a + torch.log1p(
+#         -torch.exp(
+#             torch.clamp(b - a, max=-eps)
+#         )
+#     )
 
 def load_json(p):
     with open(p, 'r') as file:

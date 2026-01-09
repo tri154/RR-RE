@@ -95,6 +95,7 @@ class Trainer:
                 log.info(f"batch id: {idx_batch}, Dev result : {d_output} .")
                 if d_score > self.best_score_dev:
                     self.best_score_dev = d_score
+                    self.best_output_dev = d_output
                     torch.save(self.model.state_dict(), self.model_save)
 
             if idx_batch % self.print_freq == 0 and idx_batch != 0:
@@ -132,7 +133,8 @@ class Trainer:
             self.cur_epoch += 1
 
         self.model.load_state_dict(torch.load(self.model_save, map_location=self.device))
-        self.score_test, test_output = self.tester.test(self.model, dataset='test')
+        log.info(f"Best dev result: {self.best_output_dev}")
+        self.score_test, test_output = self.tester.test(self.model, tag='test')
         log.info(f"Test result: {test_output} .")
 
         return self.best_score_dev

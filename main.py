@@ -8,7 +8,7 @@ from models import Encoder, DocREModel
 from trainer import Trainer
 from tester import Tester
 from loss import Loss
-from utils import collate_fn, hard_seed
+from utils import collate_fn, seeding
 
 import logging
 log = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 def main(cfg: DictConfig):
     OmegaConf.resolve(cfg)
     # DEBUG
-    hard_seed(cfg.seed)
+    seeding(cfg.seed, hard=True)
     log.info(OmegaConf.to_yaml(cfg))
     dataset = ReDocRED(cfg.dataset)
     encoder = Encoder(cfg.encoder)
