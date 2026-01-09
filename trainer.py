@@ -133,6 +133,12 @@ class Trainer:
             pin_memory= self.device == 'cuda',
         )
 
+        if self.model.is_compiled and self.device != "cpu":
+            self.model = torch.compile(
+                self.model,
+                mode="max-autotune"
+            )
+
         self.opt, self.sched = self.prepare_optimizer_scheduler(self.train_loader)
         self.cur_epoch = 0
         self.cur_step = 0

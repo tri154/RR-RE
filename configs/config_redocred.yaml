@@ -54,6 +54,7 @@ loss:
   temp: this is loss
 
 model:
+  is_compiled: True
   emb_size: 768
   block_size: 64
   num_class: ${dataset.num_class}

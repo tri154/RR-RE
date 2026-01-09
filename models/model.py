@@ -7,6 +7,7 @@ from utils import cumsum_with_zero, check_tensor
 SMALL_NEGATIVE = -1e10
 
 class DocREModel(nn.Module):
+    is_compiled: bool
     emb_size: int
     block_size: int
     num_class: int

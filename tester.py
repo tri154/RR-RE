@@ -266,8 +266,8 @@ class Tester:
             output = {
                 tag + "_F1": best_f1 * 100,
                 tag + "_F1_ign": best_f1_ign * 100,
-                "re_p": re_p * 100,
-                "re_r": re_r * 100,
+                tag + "_precison": re_p * 100,
+                tag + "_recall": re_r * 100,
             }
         else:
             best_f1, best_f1_ign = -1, -1
