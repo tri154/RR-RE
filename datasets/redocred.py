@@ -6,7 +6,7 @@ import tarfile
 import torch
 
 from utils import load_json, load_cache, save_cache, dist_log
-log_info = None
+log_info = lambda dump, **func: dump
 
 class ReDocRED:
     name: str
@@ -18,12 +18,11 @@ class ReDocRED:
     rel2id: str
 
     def __init__(self, dataset_cfg):
-        super().__init__()
+        global log_info; log_info = dist_log(__name__)
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, dataset_cfg.get(name))
         self.unzip_data()
         self.rel2id = load_json(self.rel2id)
-        global log_info; log_info = dist_log(__name__)
 
 
     def __read_docred(self, file_in, tokenizer, max_seq_length=1024, max_docs=None):

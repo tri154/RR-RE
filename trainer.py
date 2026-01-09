@@ -7,12 +7,9 @@ from transformers.optimization import get_linear_schedule_with_warmup
 from torch.optim import AdamW, Adam
 from torch.utils.data import DataLoader
 
-from utils import move_to_cuda
+from utils import move_to_cuda, dist_log
 
-import logging
-log = logging.getLogger(__name__)
-
-
+log_info = lambda dump, **func: dump
 OPTIMIZERS = {"Adam": Adam, "AdamW": AdamW}
 
 
@@ -31,6 +28,7 @@ class Trainer:
     optimizer_cfg: Any
 
     def __init__(self, trainer_cfg, model, tester, *,train_features, train_collate_fn, wandb_run=None):
+        global log_info; log_info = dist_log(__name__)
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, trainer_cfg.get(name))
 
@@ -62,8 +60,8 @@ class Trainer:
 
         num_updates = math.ceil(len(train_loader) / self.grad_accum_step) * self.epochs
         num_warmups = int(num_updates * self.warmup_ratio)
-        log.info(f"Total update steps: {num_updates}")
-        log.info(f"Total warmup steps: {num_warmups}")
+        log_info(f"Total update steps: {num_updates}")
+        log_info(f"Total warmup steps: {num_warmups}")
         sched = get_linear_schedule_with_warmup(opt, num_warmups, num_updates)
 
         return opt, sched
@@ -101,7 +99,7 @@ class Trainer:
 
             if is_evaluated:
                 d_score, d_output = self.tester.test(self.model, tag='dev')
-                log.info(f"batch id: {idx_batch}, Dev result : {d_output} .")
+                log_info(f"batch id: {idx_batch}, Dev result : {d_output} .")
                 self.wandb_log(d_output, self.cur_step)
                 if d_score > self.best_score_dev:
                     self.best_score_dev = d_score
@@ -109,7 +107,7 @@ class Trainer:
                     torch.save(self.model.state_dict(), self.model_save)
 
             if idx_batch % self.print_freq == 0 and idx_batch != 0:
-                log.info(f"batch id: {idx_batch}, batch loss: {tracking_loss/self.print_freq}")
+                log_info(f"batch id: {idx_batch}, batch loss: {tracking_loss/self.print_freq}")
                 self.wandb_log({"loss": tracking_loss/self.print_freq}, self.cur_step)
                 tracking_loss = 0.0
 
@@ -143,17 +141,17 @@ class Trainer:
 
         self.best_score_dev= 0
         for idx_epoch in range(self.epochs):
-            log.info(f'epoch {idx_epoch + 1}/{self.epochs} ' + '=' * 100)
+            log_info(f'epoch {idx_epoch + 1}/{self.epochs} ' + '=' * 100)
 
             epoch_loss = self.train_one_epoch(idx_epoch)
 
-            log.info(f"epoch: {idx_epoch + 1}, loss={epoch_loss} .")
+            log_info(f"epoch: {idx_epoch + 1}, loss={epoch_loss} .")
             self.cur_epoch += 1
 
         self.model.load_state_dict(torch.load(self.model_save, map_location=self.device))
-        log.info(f"Best dev result: {self.best_output_dev}")
+        log_info(f"Best dev result: {self.best_output_dev}")
         self.score_test, test_output = self.tester.test(self.model, tag='test')
-        log.info(f"Test result: {test_output} .")
+        log_info(f"Test result: {test_output} .")
         self.wandb_log(test_output, cur_step=self.cur_step)
 
         return self.best_score_dev
