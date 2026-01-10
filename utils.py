@@ -354,6 +354,11 @@ def init_dist():
     return 0, 1
 
 
+def destroy_dist():
+    if dist.is_available() and dist.is_initialized():
+        dist.destroy_process_group()
+
+
 def load_synced_config(cfg, rank, world_size):
     objects = [None]
     if rank == 0:

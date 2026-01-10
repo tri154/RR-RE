@@ -316,3 +316,5 @@ class Tester:
                     tag + "_F1_ign": best_f1_ign * 100,
                 }
             return best_f1, output
+        else:
+            return None, None

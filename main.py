@@ -8,7 +8,7 @@ from models import Encoder, DocREModel
 from trainer import Trainer
 from tester import Tester
 from loss import Loss
-from utils import collate_fn, seeding, init_wandb, init_dist, load_synced_config, dist_log, compile_and_to_DDP
+from utils import collate_fn, seeding, init_wandb, init_dist, load_synced_config, dist_log, compile_and_to_DDP, destroy_dist
 
 @hydra.main(version_base=None, config_path="configs", config_name="config_redocred")
 def main(cfg: DictConfig):
@@ -33,10 +33,6 @@ def main(cfg: DictConfig):
         test_features=features["test"],
         test_collate_fn=partial(collate_fn, training=False)
     )
-    # DEBUG
-    print(tester.test(model, tag="dev"))
-    breakpoint()
-    # TEST: trainer DDP
     trainer = Trainer(
         cfg.trainer,
         model,
@@ -45,11 +41,13 @@ def main(cfg: DictConfig):
         train_collate_fn=partial(collate_fn, training=True),
         wandb_run=run
     )
-
     trainer.train()
 
     if run is not None:
         run.finish()
+
+    destroy_dist()
+
 
 if __name__ == "__main__":
     main()

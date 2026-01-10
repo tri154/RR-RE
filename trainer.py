@@ -46,9 +46,10 @@ class Trainer:
         self.wandb_run = wandb_run
 
     def wandb_log(self, data, cur_step):
-        if self.wandb_run is None:
-            return
-        self.wandb_run.log(data, step=cur_step)
+        if RANK == 0:
+            if self.wandb_run is None:
+                return
+            self.wandb_run.log(data, step=cur_step)
 
 
 
@@ -94,8 +95,6 @@ class Trainer:
             is_updated = idx_batch % self.grad_accum_step == 0 or is_final_step
             is_eval_step = self.eval_freq > 0 and idx_batch % self.eval_freq == 0 and idx_batch != 0
             is_evaluated = is_final_step or is_eval_step
-            # DEBUG
-            is_evaluated = False
 
             if is_updated:
                 if self.max_grad_norm > 0:
@@ -109,10 +108,11 @@ class Trainer:
                 d_score, d_output = self.tester.test(self.model, tag='dev')
                 log_info(f"batch id: {idx_batch}, Dev result : {d_output} .")
                 self.wandb_log(d_output, self.cur_step)
-                if d_score > self.best_score_dev:
-                    self.best_score_dev = d_score
-                    self.best_output_dev = d_output
-                    torch.save(self.model.state_dict(), self.model_save)
+                if RANK == 0:
+                    if d_score > self.best_score_dev:
+                        self.best_score_dev = d_score
+                        self.best_output_dev = d_output
+                        torch.save(self.model.state_dict(), self.model_save)
 
             if idx_batch % self.print_freq == 0 and idx_batch != 0:
                 log_info(f"batch id: {idx_batch}, batch loss: {tracking_loss/self.print_freq}")
@@ -153,7 +153,9 @@ class Trainer:
             log_info(f"epoch: {idx_epoch + 1}, loss={epoch_loss} .")
             self.cur_epoch += 1
 
-        self.model.load_state_dict(torch.load(self.model_save, map_location=self.device))
+        self.model.load_state_dict(
+            torch.load(self.model_save, map_location=self.device, weights_only=True)
+        )
         log_info(f"Best dev result: {self.best_output_dev}")
         self.score_test, test_output = self.tester.test(self.model, tag='test')
         log_info(f"Test result: {test_output} .")
