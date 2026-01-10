@@ -48,9 +48,8 @@ def move_to_cuda(
             "input_mask": input_mask.cuda(non_blocking=True),
             "entity_pos": entity_pos.cuda(non_blocking=True),
             "hts": hts.cuda(non_blocking=True),
-
-            "n_entities": n_entities.cpu(),
-            "n_rels": n_rels.cpu(),
+            "n_entities": n_entities.cuda(non_blocking=True),
+            "n_rels": n_rels.cuda(non_blocking=True),
         }
         if labels is not None:
             label_out = {
@@ -124,7 +123,7 @@ def collate_fn(batch, training):
 def cumsum_with_zero(x, exclude_last=False):
     """ Expect x as 1D tensor"""
     res = torch.cumsum(x, dim=0)
-    res = torch.cat([torch.tensor([0], dtype=torch.long), res], dim=0)
+    res = torch.cat([torch.tensor([0], dtype=torch.long, device=res.device), res], dim=0)
     if exclude_last:
         res = res[:-1]
     return res

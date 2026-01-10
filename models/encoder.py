@@ -26,7 +26,6 @@ class Encoder(nn.Module):
         self.tokenizer = AutoTokenizer.from_pretrained(self.name)
         if not self.lazy:
             self.load_model()
-
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         self.max_num_tokens = 512
@@ -54,12 +53,14 @@ class Encoder(nn.Module):
                 self.encoder = AutoModel.from_pretrained(
                     self.name,
                     config=self.config,
-                    attn_implementation=self.attn_impl
+                    attn_implementation=self.attn_impl,
+                    add_pooling_layer=False
                 )
             else:
                 self.encoder = AutoModel.from_pretrained(
                     self.name,
-                    config=self.config
+                    config=self.config,
+                    add_pooling_layer=False
                 )
 
 

@@ -26,15 +26,14 @@ def main(cfg: DictConfig):
     model = DocREModel(cfg.model, encoder, loss)
 
     features = dataset.get_features(encoder.tokenizer, load_cached=True)
-    # DEBUG
-    breakpoint()
-    # do trainer first
     tester = Tester(
         cfg.tester,
         dev_features=features["dev"],
         test_features=features["test"],
         test_collate_fn=partial(collate_fn, training=False)
     )
+    # DEBUG
+    # TEST: trainer DDP
     trainer = Trainer(
         cfg.trainer,
         model,

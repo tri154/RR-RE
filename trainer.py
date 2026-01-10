@@ -6,11 +6,15 @@ from collections import defaultdict
 from transformers.optimization import get_linear_schedule_with_warmup
 from torch.optim import AdamW, Adam
 from torch.utils.data import DataLoader
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
 
-from utils import move_to_cuda, dist_log
+from utils import move_to_cuda, dist_log, get_dist_info
 
 log_info = lambda dump, **func: dump
 OPTIMIZERS = {"Adam": Adam, "AdamW": AdamW}
+RANK = 0
+WORLD_SIZE = 1
 
 
 class Trainer:
@@ -29,11 +33,17 @@ class Trainer:
 
     def __init__(self, trainer_cfg, model, tester, *,train_features, train_collate_fn, wandb_run=None):
         global log_info; log_info = dist_log(__name__)
+        global RANK, WORLD_SIZE; RANK, WORLD_SIZE= get_dist_info()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, trainer_cfg.get(name))
 
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = model.to(self.device)
+        if self.model.is_compiled and self.device != "cpu":
+            self.model = torch.compile(self.model)
+        if WORLD_SIZE > 1: self.model = DDP(self.model, device_ids=[RANK])
+
         self.tester = tester
         self.train_features = train_features
         self.train_collate_fn = train_collate_fn
@@ -84,10 +94,13 @@ class Trainer:
             # input("break")
             # DEBUG
 
+            # ERROR:
             is_updated = True
             is_final_step = idx_batch == len(self.train_loader) - 1
             is_eval_step = self.eval_freq > 0 and idx_batch % self.eval_freq == 0 and idx_batch != 0
             is_evaluated = is_final_step or is_eval_step
+            # DEBUG
+            is_evaluated = False
 
             if is_updated:
                 if self.max_grad_norm > 0:
@@ -120,19 +133,22 @@ class Trainer:
 
 
     def train(self):
-        self.train_loader = DataLoader(
-            self.train_features,
-            batch_size=self.batch_size,
-            collate_fn=self.train_collate_fn,
-            shuffle=True,
-            drop_last=True,
-            pin_memory= self.device == 'cuda',
-        )
-
-        if self.model.is_compiled and self.device != "cpu":
-            self.model = torch.compile(
-                self.model,
-                mode="max-autotune"
+        if WORLD_SIZE > 1:
+            self.train_loader = DataLoader(
+                self.train_features,
+                batch_size=self.batch_size,
+                collate_fn=self.train_collate_fn,
+                shuffle=False,
+                sampler=DistributedSampler(self.train_features)
+            )
+        else:
+            self.train_loader = DataLoader(
+                self.train_features,
+                batch_size=self.batch_size,
+                collate_fn=self.train_collate_fn,
+                shuffle=True,
+                drop_last=True,
+                pin_memory= self.device == 'cuda',
             )
 
         self.opt, self.sched = self.prepare_optimizer_scheduler(self.train_loader)
@@ -143,6 +159,7 @@ class Trainer:
         for idx_epoch in range(self.epochs):
             log_info(f'epoch {idx_epoch + 1}/{self.epochs} ' + '=' * 100)
 
+            if WORLD_SIZE > 1: self.train_loader.sampler.set_epoch(idx_epoch)
             epoch_loss = self.train_one_epoch(idx_epoch)
 
             log_info(f"epoch: {idx_epoch + 1}, loss={epoch_loss} .")

@@ -37,10 +37,9 @@ class DocREModel(nn.Module):
     def get_entity_embs_attns(self, seq_embs, attentions, entity_pos, n_entities):
         bs = seq_embs.shape[0]
         dids = (
-            torch.arange(bs)
+            torch.arange(bs, device=seq_embs.device)
             .repeat_interleave(n_entities)
             .unsqueeze(dim=-1)
-            .to(seq_embs.device)
         )
         entity_embs = seq_embs[dids, entity_pos].logsumexp(dim=-2)
 
@@ -121,7 +120,7 @@ class DocREModel(nn.Module):
         hs = torch.cat([hs, rs], dim=1)
         ts = torch.cat([ts, rs], dim=1)
         hs = torch.tanh(self.head_extractor(hs))
-        ts = torch.tanh(self.head_extractor(ts))
+        ts = torch.tanh(self.tail_extractor(ts))
         logits = self.__bilinear(hs, ts)
 
         if self.training:
