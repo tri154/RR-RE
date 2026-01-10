@@ -15,7 +15,7 @@ def main(cfg: DictConfig):
     RANK, WORLD_SIZE = init_dist()
     log_info = dist_log(__name__)
     cfg = load_synced_config(cfg, RANK, WORLD_SIZE)
-    run = init_wandb(cfg) if cfg.wandb.used else None
+    run = init_wandb(cfg) if cfg.wandb.used and RANK == 0 else None
     seeding(cfg.seed, hard=False, rank=RANK)
     if RANK==0: log_info(OmegaConf.to_yaml(cfg))
 

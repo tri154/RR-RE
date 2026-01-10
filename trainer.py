@@ -46,10 +46,9 @@ class Trainer:
         self.wandb_run = wandb_run
 
     def wandb_log(self, data, cur_step):
-        if RANK == 0:
-            if self.wandb_run is None:
-                return
-            self.wandb_run.log(data, step=cur_step)
+        if self.wandb_run is None:
+            return
+        self.wandb_run.log(data, step=cur_step)
 
 
 
