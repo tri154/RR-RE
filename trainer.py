@@ -132,23 +132,16 @@ class Trainer:
 
 
     def train(self):
-        if WORLD_SIZE > 1:
-            self.train_loader = DataLoader(
-                self.train_features,
-                batch_size=self.batch_size,
-                collate_fn=self.train_collate_fn,
-                shuffle=False,
-                sampler=DistributedSampler(self.train_features)
-            )
-        else:
-            self.train_loader = DataLoader(
-                self.train_features,
-                batch_size=self.batch_size,
-                collate_fn=self.train_collate_fn,
-                shuffle=True,
-                drop_last=True,
-                pin_memory= self.device == 'cuda',
-            )
+        sampler = DistributedSampler(self.train_features) if WORLD_SIZE > 1 else None
+        self.train_loader = DataLoader(
+            self.train_features,
+            batch_size=self.batch_size,
+            collate_fn=self.train_collate_fn,
+            shuffle=False,
+            drop_last=True,
+            pin_memory= self.device == 'cuda',
+            sampler=sampler
+        )
 
         self.opt, self.sched = self.prepare_optimizer_scheduler(self.train_loader)
         self.cur_epoch = 0

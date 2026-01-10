@@ -69,18 +69,14 @@ def collate_fn(batch, training):
     input_ids = pad_sequence(input_ids, batch_first=True, padding_value=0)
     input_mask = pad_sequence(input_mask, batch_first=True, padding_value=0)
 
-    # NOTDONE: stack this one. Should run code to compare speed.
-    # No need: high chance that one is faster.
-    if True:
-        n_entities = list()
-        entity_pos = list()
-        for f in batch:
-            epos = f["entity_pos"]
-            n_entities.append(len(epos))
-            entity_pos.extend(epos)
-        entity_pos = pad_sequence(entity_pos, padding_value=-1, batch_first=True)
-    else:
-        entity_pos = [f["entity_pos"] for f in batch]
+    # stacking
+    n_entities = list()
+    entity_pos = list()
+    for f in batch:
+        epos = f["entity_pos"]
+        n_entities.append(len(epos))
+        entity_pos.extend(epos)
+    entity_pos = pad_sequence(entity_pos, padding_value=-1, batch_first=True)
 
     hts = [f["hts"] for f in batch]
     n_rels = [len(ts) for ts in hts]
