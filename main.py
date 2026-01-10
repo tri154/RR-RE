@@ -34,7 +34,8 @@ def main(cfg: DictConfig):
         test_collate_fn=partial(collate_fn, training=False)
     )
     # DEBUG
-    tester.test(model, tag="dev")
+    print(tester.test(model, tag="dev"))
+    breakpoint()
     # TEST: trainer DDP
     trainer = Trainer(
         cfg.trainer,
