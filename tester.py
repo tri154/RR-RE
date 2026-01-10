@@ -4,17 +4,14 @@ import torch
 import numpy as np
 import os
 import json
+from torch.utils.data.distributed import DistributedSampler
+import torch.distributed as dist
 
-from utils import move_to_cuda, load_json
+from utils import move_to_cuda, load_json, get_dist_info
 
+RANK = 0
+WORLD_SIZE = 1
 
-def move_to_device(batch, device):
-    if device == 'cpu':
-        return batch
-    for k, v in batch.items():
-        if torch.is_tensor(v):
-            batch[k] = v.cuda(non_blocking=True)
-    return batch
 
 class Tester:
     batch_size: int
@@ -23,6 +20,7 @@ class Tester:
     sets: Any
 
     def __init__(self, tester_cfg, *, dev_features, test_features, test_collate_fn):
+        global RANK, WORLD_SIZE; RANK, WORLD_SIZE = get_dist_info()
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, tester_cfg.get(name))
 
@@ -38,6 +36,13 @@ class Tester:
         self.test_loader = self.get_test_dataloader(test_features)
 
     def get_test_dataloader(self, features):
+        sampler = None
+        if WORLD_SIZE > 1:
+            sampler=DistributedSampler(
+                features,
+                shuffle=False,
+                drop_last=False
+            )
         return DataLoader(
             features,
             shuffle=False,
@@ -45,6 +50,7 @@ class Tester:
             batch_size=self.batch_size,
             collate_fn=self.test_collate_fn,
             pin_memory=self.device == 'cuda',
+            sampler=sampler
         )
 
     def to_official(self, preds, features):
@@ -247,32 +253,62 @@ class Tester:
 
         model.eval()
 
-        all_preds = []
-        for batch_input, batch_label in loader:
+        local_preds = []
+        local_ids = []
+        for batch_input, batch_ids in loader:
             batch_input = move_to_cuda(
                 **batch_input,
                 device=self.device
             )
             with torch.no_grad():
-                batch_preds = model(**batch_input).cpu().numpy()
-            all_preds.append(batch_preds)
+                batch_preds, n_rels_per_batch = model(**batch_input)
+                batch_preds = batch_preds.split(n_rels_per_batch.tolist())
+                batch_preds = [ts.cpu().numpy() for ts in batch_preds]
+                batch_ids = np.array(batch_ids)
+            local_preds.extend(batch_preds)
+            local_ids.append(batch_ids)
 
-        all_preds = np.concatenate(all_preds, axis=0).astype(np.float32)
-        ans = self.to_official(all_preds, features)
-
-        if len(ans) > 0:
-            best_f1, _, best_f1_ign, re_f1_ignore_train, re_p, re_r = \
-                self.official_evaluate(ans, self.data_dir, tag)
-            output = {
-                tag + "_F1": best_f1 * 100,
-                tag + "_F1_ign": best_f1_ign * 100,
-                tag + "_precison": re_p * 100,
-                tag + "_recall": re_r * 100,
-            }
+        local_ids = np.concatenate(local_ids, axis=0).astype(int)
+        if WORLD_SIZE > 1:
+            obj = (local_ids, local_preds)
+            if RANK == 0:
+                all_objs = [None] * WORLD_SIZE
+            else:
+                all_objs = None
+            dist.gather_object(
+                obj=obj,
+                object_gather_list=all_objs,
+                dst=0
+            )
         else:
-            best_f1, best_f1_ign = -1, -1
-            output = {
-                tag + "_F1": best_f1 * 100,
-                tag + "_F1_ign": best_f1_ign * 100,
-            }
-        return best_f1, output
+            all_objs = [(local_ids, local_preds)]
+
+        if RANK == 0:
+            all_ids = []
+            all_preds = []
+            for l_ids, l_preds in all_objs:
+                all_ids.append(l_ids)
+                all_preds.extend(l_preds)
+
+            all_ids = np.concatenate(all_ids, axis=0)
+            order = all_ids.argsort()
+            all_preds = [all_preds[i] for i in order]
+
+            all_preds = np.concatenate(all_preds, axis=0).astype(np.float32)
+            ans = self.to_official(all_preds, features)
+            if len(ans) > 0:
+                best_f1, _, best_f1_ign, re_f1_ignore_train, re_p, re_r = \
+                    self.official_evaluate(ans, self.data_dir, tag)
+                output = {
+                    tag + "_F1": best_f1 * 100,
+                    tag + "_F1_ign": best_f1_ign * 100,
+                    tag + "_precison": re_p * 100,
+                    tag + "_recall": re_r * 100,
+                }
+            else:
+                best_f1, best_f1_ign = -1, -1
+                output = {
+                    tag + "_F1": best_f1 * 100,
+                    tag + "_F1_ign": best_f1_ign * 100,
+                }
+            return best_f1, output

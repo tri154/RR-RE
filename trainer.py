@@ -6,7 +6,6 @@ from collections import defaultdict
 from transformers.optimization import get_linear_schedule_with_warmup
 from torch.optim import AdamW, Adam
 from torch.utils.data import DataLoader
-from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 
 from utils import move_to_cuda, dist_log, get_dist_info
@@ -39,10 +38,7 @@ class Trainer:
         for name in self.__class__.__annotations__: # only update defined annotations.
             setattr(self, name, trainer_cfg.get(name))
 
-        self.model = model.to(self.device)
-        if self.model.is_compiled and self.device != "cpu":
-            self.model = torch.compile(self.model)
-        if WORLD_SIZE > 1: self.model = DDP(self.model, device_ids=[RANK])
+        self.model = model
 
         self.tester = tester
         self.train_features = train_features

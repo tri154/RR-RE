@@ -13,6 +13,7 @@ import torch.distributed as dist
 import os
 from omegaconf import OmegaConf
 from functools import partial
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 import logging
 
@@ -82,12 +83,6 @@ def collate_fn(batch, training):
     n_rels = [len(ts) for ts in hts]
     hts = torch.cat(hts, dim=0)
 
-
-    labels = [f["labels"] for f in batch]
-    labels = torch.cat(labels, dim=0)
-    labels_mask = [f["labels_mask"] for f in batch]
-    labels_mask = torch.cat(labels_mask, dim=0)
-
     input_ids = input_ids.long()
     input_mask = input_mask.bool()
     entity_pos = entity_pos.long()
@@ -95,8 +90,22 @@ def collate_fn(batch, training):
     n_entities = torch.tensor(n_entities, dtype=torch.long)
     n_rels = torch.tensor(n_rels, dtype=torch.long)
 
-    labels = labels.long()
-    labels_mask = labels_mask.bool()
+
+    if not training:
+        ids = [f["id"] for f in batch]
+
+    if training:
+        labels = [f["labels"] for f in batch]
+        labels = torch.cat(labels, dim=0)
+        labels_mask = [f["labels_mask"] for f in batch]
+        labels_mask = torch.cat(labels_mask, dim=0)
+        labels = labels.long()
+        labels_mask = labels_mask.bool()
+        # CHANGED: move labels out of batch.
+        label_out = {
+            "labels": labels,
+            "labels_mask": labels_mask
+        }
 
     output = {
         "input_ids": input_ids,
@@ -107,12 +116,13 @@ def collate_fn(batch, training):
         "n_entities": n_entities,
         "n_rels": n_rels,
     }
-    # CHANGED: move labels out of batch.
-    label_out = {
-        "labels": labels,
-        "labels_mask": labels_mask
-    }
-    return output, label_out
+
+    if training:
+        # return output and label
+        return output, label_out
+    else:
+        # return output and id of batch for aggregation
+        return output, ids
 
 
 
@@ -376,3 +386,14 @@ def dist_log(log_name):
     logger = logging.getLogger(log_name)
     rank, world_size = get_dist_info()
     return partial(log_info, logger=logger, rank=rank, world_size=world_size)
+
+
+def compile_and_to_DDP(model):
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = model.to(device)
+    if model.is_compiled and device != 'cpu':
+        model = torch.compile(model)
+    RANK, WORLD_SIZE = get_dist_info()
+    if WORLD_SIZE > 1:
+        model = DDP(model, device_ids=[RANK])
+    return model

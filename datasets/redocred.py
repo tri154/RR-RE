@@ -148,7 +148,7 @@ class ReDocRED:
         log_info(f"max number of rels: {max_n_rels} .")
 
         # CHANGED: padding labels here. padding_value.
-        for feature in features:
+        for idx, feature in enumerate(features):
             relations = feature["labels"]
             temp = list()
             mask = list()
@@ -159,6 +159,7 @@ class ReDocRED:
             mask = torch.tensor(mask, dtype=torch.bool)
             feature["labels"] = relations
             feature["labels_mask"] = mask
+            feature["id"] = idx
 
         return features, re_fre, len_freq
 

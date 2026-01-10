@@ -129,4 +129,4 @@ class DocREModel(nn.Module):
         else:
             preds = logits > logits[:, 0, None]
             preds[:, 0] = (preds.sum(1) == 0)
-            return preds
+            return preds, n_rels
