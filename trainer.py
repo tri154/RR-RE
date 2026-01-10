@@ -132,10 +132,11 @@ class Trainer:
             self.train_features,
             batch_size=self.batch_size,
             collate_fn=self.train_collate_fn,
-            shuffle=False,
+            shuffle=sampler is None,
             drop_last=True,
             pin_memory= self.device == 'cuda',
-            sampler=sampler
+            sampler=sampler,
+            num_workers=1
         )
 
         self.opt, self.sched = self.prepare_optimizer_scheduler(self.train_loader)
@@ -143,6 +144,7 @@ class Trainer:
         self.cur_step = 0
 
         self.best_score_dev= 0
+        self.best_output_dev = 0
         for idx_epoch in range(self.epochs):
             log_info(f'epoch {idx_epoch + 1}/{self.epochs} ' + '=' * 100)
 
