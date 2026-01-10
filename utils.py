@@ -4,7 +4,7 @@ import time
 import torch
 from contextlib import contextmanager
 import random
-import numpy
+import numpy as np
 import pickle as pkl
 import json
 import wandb
@@ -301,7 +301,7 @@ def check_tensor(
 def seeding(seed, hard=False, rank=0):
     seed = seed + rank
     random.seed(seed)
-    numpy.random.seed(seed)
+    np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     if hard:
@@ -397,3 +397,7 @@ def compile_and_to_DDP(model):
     if WORLD_SIZE > 1:
         model = DDP(model, device_ids=[RANK])
     return model
+
+def np_split(x, split, axis=0):
+    indices = np.cumsum(split)[:-1]
+    return np.split(x, indices, axis=axis)

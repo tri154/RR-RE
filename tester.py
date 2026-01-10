@@ -7,7 +7,7 @@ import json
 from torch.utils.data.distributed import DistributedSampler
 import torch.distributed as dist
 
-from utils import move_to_cuda, load_json, get_dist_info
+from utils import move_to_cuda, load_json, get_dist_info, np_split
 
 RANK = 0
 WORLD_SIZE = 1
@@ -262,8 +262,10 @@ class Tester:
             )
             with torch.no_grad():
                 batch_preds, n_rels_per_batch = model(**batch_input)
-                batch_preds = batch_preds.split(n_rels_per_batch.tolist())
-                batch_preds = [ts.cpu().numpy() for ts in batch_preds]
+                batch_preds = batch_preds.cpu().numpy()
+                n_rels_per_batch = n_rels_per_batch.cpu().numpy()
+
+                batch_preds = np_split(batch_preds, n_rels_per_batch)
                 batch_ids = np.array(batch_ids)
             local_preds.extend(batch_preds)
             local_ids.append(batch_ids)
@@ -291,6 +293,8 @@ class Tester:
                 all_preds.extend(l_preds)
 
             all_ids = np.concatenate(all_ids, axis=0)
+            assert len(all_ids) == len(all_preds)
+
             order = all_ids.argsort()
             all_preds = [all_preds[i] for i in order]
 
