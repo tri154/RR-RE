@@ -94,9 +94,8 @@ class Trainer:
             # input("break")
             # DEBUG
 
-            # ERROR:
-            is_updated = True
             is_final_step = idx_batch == len(self.train_loader) - 1
+            is_updated = idx_batch % self.grad_accum_step == 0 or is_final_step
             is_eval_step = self.eval_freq > 0 and idx_batch % self.eval_freq == 0 and idx_batch != 0
             is_evaluated = is_final_step or is_eval_step
             # DEBUG
