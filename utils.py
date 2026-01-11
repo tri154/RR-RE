@@ -14,6 +14,7 @@ import os
 from omegaconf import OmegaConf
 from functools import partial
 from torch.nn.parallel import DistributedDataParallel as DDP
+from huggingface_hub import HfApi, create_repo
 
 import logging
 
@@ -406,3 +407,24 @@ def compile_and_to_DDP(model):
 def np_split(x, split, axis=0):
     indices = np.cumsum(split)[:-1]
     return np.split(x, indices, axis=axis)
+
+
+def save_to_cloud(saver_cfg):
+    if saver_cfg.used:
+        HF_TOKEN = os.environ.get("HF_TOKEN")
+        assert HF_TOKEN is not None
+        create_repo(
+            repo_id=saver_cfg.repo_id,
+            token=HF_TOKEN,
+            repo_type="model",
+            exist_ok=True
+        )
+        api = HfApi()
+        api.upload_file(
+            path_or_fileobj=saver_cfg.model_save,          # local file
+            path_in_repo="model.pt",             # filename on HF
+            repo_id=saver_cfg.repo_id,
+            token=HF_TOKEN
+        )
+
+        print("Uploaded successfully!")

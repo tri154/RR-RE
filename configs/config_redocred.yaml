@@ -59,3 +59,8 @@ model:
   emb_size: 768
   block_size: 64
   num_class: ${dataset.num_class}
+
+saver:
+  is_saved: False
+  repo_id: ledas/RR-RE
+  model_save: ${trainer.model_save}

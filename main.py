@@ -8,7 +8,7 @@ from models import Encoder, DocREModel
 from trainer import Trainer
 from tester import Tester
 from loss import Loss
-from utils import collate_fn, seeding, init_wandb, init_dist, load_synced_config, dist_log, compile_and_to_DDP, destroy_dist
+from utils import collate_fn, seeding, init_wandb, init_dist, load_synced_config, dist_log, compile_and_to_DDP, destroy_dist, save_to_cloud
 
 @hydra.main(version_base=None, config_path="configs", config_name="config_redocred")
 def main(cfg: DictConfig):
@@ -43,9 +43,9 @@ def main(cfg: DictConfig):
     )
     trainer.train()
 
+    if RANK == 0: save_to_cloud(cfg.saver)
     if run is not None:
         run.finish()
-
     destroy_dist()
 
 

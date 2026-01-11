@@ -1,0 +1,3 @@
+transformers
+hydra_core
+wandb
