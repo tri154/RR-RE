@@ -20,6 +20,7 @@ encoder:
   lazy: False
 
 trainer:
+  use_bfloat16: False
   epochs: 30
   batch_size: 2
   grad_accum_step: 1

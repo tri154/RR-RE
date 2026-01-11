@@ -17,6 +17,7 @@ WORLD_SIZE = 1
 
 
 class Trainer:
+    use_bfloat16: bool
     epochs: int
     batch_size: int
     grad_accum_step: int
@@ -44,12 +45,19 @@ class Trainer:
         self.train_features = train_features
         self.train_collate_fn = train_collate_fn
         self.wandb_run = wandb_run
+        bf16_supported = torch.cuda.is_bf16_supported()
+        if self.use_bfloat16 and not bf16_supported:
+            log_info("GPUs doesn't support bfloat16, fall back to default (float32).")
+        elif self.use_bfloat16 and bf16_supported:
+            log_info("GPUs supported bfloat16, use bfloat16. ")
+        else:
+            log_info("Use float32.")
+        self.use_bfloat16 = self.use_bfloat16 and torch.cuda.is_bf16_supported()
 
     def wandb_log(self, data, cur_step):
         if self.wandb_run is None:
             return
         self.wandb_run.log(data, step=cur_step)
-
 
 
     def prepare_optimizer_scheduler(self, train_loader):
@@ -82,7 +90,12 @@ class Trainer:
             batch_input, batch_label = move_to_cuda(**batch_input, **batch_label, device=device)
 
             self.model.train()
-            batch_loss = self.model(**batch_input, **batch_label)
+            if self.use_bfloat16:
+                with torch.amp.autocast(dtype=torch.bfloat16, device_type=device):
+                    batch_loss = self.model(**batch_input, **batch_label)
+            else:
+                batch_loss = self.model(**batch_input, **batch_label)
+
             (batch_loss / self.grad_accum_step).backward()
 
             # DEBUG

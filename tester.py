@@ -298,7 +298,7 @@ class Tester:
             order = all_ids.argsort()
             all_preds = [all_preds[i] for i in order]
 
-            all_preds = np.concatenate(all_preds, axis=0).astype(np.float32)
+            all_preds = np.concatenate(all_preds, axis=0).astype(int)
             ans = self.to_official(all_preds, features)
             if len(ans) > 0:
                 best_f1, _, best_f1_ign, re_f1_ignore_train, re_p, re_r = \
