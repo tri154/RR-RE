@@ -1,6 +1,13 @@
 seed: 25
 result_path: ${hydra:runtime.output_dir}
 
+misc:
+  bfloat16: False
+  wandb: False
+  compile_model: False
+  save_cloud: False
+
+
 dataset:
   name: ReDocRED
   path: data/redocred
@@ -20,7 +27,7 @@ encoder:
   lazy: False
 
 trainer:
-  use_bfloat16: False
+  use_bfloat16: ${misc.bfloat16}
   epochs: 30
   batch_size: 2
   grad_accum_step: 1
@@ -41,7 +48,7 @@ trainer:
       eps: !!float 1e-9
 
 wandb:
-  used: False
+  used: ${misc.wandb}
   entity: triyn01052004-vietnam-national-university-hanoi
   project: RR-RE
 
@@ -55,12 +62,12 @@ loss:
   temp: this is loss
 
 model:
-  is_compiled: False
+  is_compiled: ${misc.compile_model}
   emb_size: 768
   block_size: 64
   num_class: ${dataset.num_class}
 
 saver:
-  is_saved: False
+  is_saved: ${misc.save_cloud}
   repo_id: ledas/RR-RE
   model_save: ${trainer.model_save}
