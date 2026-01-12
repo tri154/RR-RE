@@ -58,8 +58,8 @@ class Encoder(nn.Module):
                     attn_implementation=self.attn_impl,
                     add_pooling_layer=False
                 )
-                for p in self.encoder.parameters():
-                    p.requires_grad = False
+                # for p in self.encoder.parameters():
+                #     p.requires_grad = False
                 self.extra_layer = RobertaEncoderLayer()
             else:
                 self.encoder = AutoModel.from_pretrained(
@@ -67,8 +67,8 @@ class Encoder(nn.Module):
                     config=self.config,
                     add_pooling_layer=False
                 )
-                for p in self.encoder.parameters():
-                    p.requires_grad = False
+                # for p in self.encoder.parameters():
+                #     p.requires_grad = False
                 self.extra_layer = RobertaEncoderLayer()
 
 
@@ -81,12 +81,12 @@ class Encoder(nn.Module):
 
         if max_doc_length <= self.max_num_tokens:
             # batch_output = self.transformer(input_ids=batch_token_seqs, attention_mask=batch_token_masks, token_type_ids=batch_token_types, output_attentions=True)
-            with torch.no_grad():
-                batch_output = self.encoder(
-                    input_ids=batch_token_seqs,
-                    attention_mask=batch_token_masks,
-                    output_attentions=False
-                )
+            # with torch.no_grad():
+            batch_output = self.encoder(
+                input_ids=batch_token_seqs,
+                attention_mask=batch_token_masks,
+                output_attentions=False
+            )
             batch_token_embs = batch_output[0]
             # batch_token_atts = batch_output[-1][-1]
             batch_token_embs, batch_token_atts = self.extra_layer(
@@ -171,13 +171,13 @@ class Encoder(nn.Module):
         batch_token_masks = torch.stack(token_masks).bool()
         # batch_token_types = torch.stack(token_types).long()
 
-        with torch.no_grad():
-            batch_output = self.encoder(
-                input_ids=batch_token_seqs,
-                attention_mask=batch_token_masks,
-                # token_type_ids=batch_token_types,
-                output_attentions=False
-            )
+        # with torch.no_grad():
+        batch_output = self.encoder(
+            input_ids=batch_token_seqs,
+            attention_mask=batch_token_masks,
+            # token_type_ids=batch_token_types,
+            output_attentions=False
+        )
         token_embs = batch_output[0]
         # token_atts = batch_output[-1][-1]
         token_embs, token_atts = self.extra_layer(

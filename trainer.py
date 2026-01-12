@@ -65,7 +65,10 @@ class Trainer:
         for name, param in self.model.named_parameters():
             if 'pretrain' in name:
                 if "extra_layer" in name:
+                    grouped_params['new_lr'].append(param)
+                else:
                     grouped_params['pretrained_lr'].append(param)
+
             else:
                 grouped_params['new_lr'].append(param)
 
