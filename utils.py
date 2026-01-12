@@ -410,7 +410,7 @@ def np_split(x, split, axis=0):
 
 
 def save_to_cloud(saver_cfg):
-    if saver_cfg.used:
+    if saver_cfg.is_saved:
         HF_TOKEN = os.environ.get("HF_TOKEN")
         assert HF_TOKEN is not None
         create_repo(
