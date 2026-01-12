@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
+from models import RobertaEncoderLayer
+
 
 small_positive = 1e-10
 
@@ -56,12 +58,18 @@ class Encoder(nn.Module):
                     attn_implementation=self.attn_impl,
                     add_pooling_layer=False
                 )
+                for p in self.encoder.parameters():
+                    p.requires_grad = False
+                self.extra_layer = RobertaEncoderLayer()
             else:
                 self.encoder = AutoModel.from_pretrained(
                     self.name,
                     config=self.config,
                     add_pooling_layer=False
                 )
+                for p in self.encoder.parameters():
+                    p.requires_grad = False
+                self.extra_layer = RobertaEncoderLayer()
 
 
     def forward_sliding_window_with_attention(self, batch_token_seqs, batch_token_masks, stride=128):
@@ -73,11 +81,19 @@ class Encoder(nn.Module):
 
         if max_doc_length <= self.max_num_tokens:
             # batch_output = self.transformer(input_ids=batch_token_seqs, attention_mask=batch_token_masks, token_type_ids=batch_token_types, output_attentions=True)
-            batch_output = self.encoder(input_ids=batch_token_seqs,
-                                        attention_mask=batch_token_masks,
-                                        output_attentions=True)
+            with torch.no_grad():
+                batch_output = self.encoder(
+                    input_ids=batch_token_seqs,
+                    attention_mask=batch_token_masks,
+                    output_attentions=False
+                )
             batch_token_embs = batch_output[0]
-            batch_token_atts = batch_output[-1][-1]
+            # batch_token_atts = batch_output[-1][-1]
+            batch_token_embs, batch_token_atts = self.extra_layer(
+                batch_token_embs,
+                attention_mask=batch_token_masks,
+                output_attentions=True
+            )
             return batch_token_embs, batch_token_atts
 
         num_token_per_doc = batch_token_masks.sum(1).int().tolist()
@@ -155,12 +171,20 @@ class Encoder(nn.Module):
         batch_token_masks = torch.stack(token_masks).bool()
         # batch_token_types = torch.stack(token_types).long()
 
-        batch_output = self.encoder(input_ids=batch_token_seqs,
-                                        attention_mask=batch_token_masks,
-                                        # token_type_ids=batch_token_types,
-                                        output_attentions=True)
+        with torch.no_grad():
+            batch_output = self.encoder(
+                input_ids=batch_token_seqs,
+                attention_mask=batch_token_masks,
+                # token_type_ids=batch_token_types,
+                output_attentions=False
+            )
         token_embs = batch_output[0]
-        token_atts = batch_output[-1][-1]
+        # token_atts = batch_output[-1][-1]
+        token_embs, token_atts = self.extra_layer(
+            token_embs,
+            attention_mask=batch_token_masks,
+            output_attentions=True
+        )
 
         batch_token_embs = list()
         batch_token_atts = list()
