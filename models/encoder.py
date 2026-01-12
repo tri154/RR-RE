@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
+from models import RobertaWithLastAttention
+
 
 small_positive = 1e-10
 
@@ -43,24 +45,20 @@ class Encoder(nn.Module):
         self.pad_token_ids = self.tokenizer.pad_token_id
 
 
-    def get_attn_type(self):
-        attn = self.encoder.encoder.layer[0].attention.self
-        return attn.__class__.__name__
-
     def load_model(self):
         if not hasattr(self, "encoder"):
             if self.attn_impl is not None:
-                self.encoder = AutoModel.from_pretrained(
+                self.encoder = RobertaWithLastAttention(
                     self.name,
                     config=self.config,
                     attn_implementation=self.attn_impl,
-                    add_pooling_layer=False
+                    # add_pooling_layer=False
                 )
             else:
-                self.encoder = AutoModel.from_pretrained(
+                self.encoder = RobertaWithLastAttention(
                     self.name,
                     config=self.config,
-                    add_pooling_layer=False
+                    # add_pooling_layer=False
                 )
 
 
@@ -73,9 +71,11 @@ class Encoder(nn.Module):
 
         if max_doc_length <= self.max_num_tokens:
             # batch_output = self.transformer(input_ids=batch_token_seqs, attention_mask=batch_token_masks, token_type_ids=batch_token_types, output_attentions=True)
-            batch_output = self.encoder(input_ids=batch_token_seqs,
-                                        attention_mask=batch_token_masks,
-                                        output_attentions=True)
+            batch_output = self.encoder(
+                input_ids=batch_token_seqs,
+                attention_mask=batch_token_masks,
+                # output_attentions=True
+            )
             batch_token_embs = batch_output[0]
             batch_token_atts = batch_output[-1][-1]
             return batch_token_embs, batch_token_atts
@@ -155,10 +155,12 @@ class Encoder(nn.Module):
         batch_token_masks = torch.stack(token_masks).bool()
         # batch_token_types = torch.stack(token_types).long()
 
-        batch_output = self.encoder(input_ids=batch_token_seqs,
-                                        attention_mask=batch_token_masks,
-                                        # token_type_ids=batch_token_types,
-                                        output_attentions=True)
+        batch_output = self.encoder(
+            input_ids=batch_token_seqs,
+            attention_mask=batch_token_masks,
+            # token_type_ids=batch_token_types,
+            # output_attentions=True
+        )
         token_embs = batch_output[0]
         token_atts = batch_output[-1][-1]
 
