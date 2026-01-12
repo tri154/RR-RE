@@ -36,7 +36,7 @@ trainer:
   max_grad_norm: -1
   model_save: ${result_path}/best.pt
 
-  pretrain_lr: !!float 8e-5
+  pretrain_lr: !!float 1e-5
   new_lr: !!float 8e-5
   warmup_ratio: 0.06
   optimizer_cfg:
